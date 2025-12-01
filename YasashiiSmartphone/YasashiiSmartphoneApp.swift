@@ -1,21 +1,15 @@
-//
-//  YasashiiSmartphoneApp.swift
-//  YasashiiSmartphone
-//
-//  Created by s002343 on 2025/11/29.
-//
-
 import SwiftUI
-import CoreData
 
 @main
 struct YasashiiSmartphoneApp: App {
-    let persistenceController = PersistenceController.shared
+    @StateObject private var favoriteContactsStore = FavoriteContactsStore()
+    @StateObject private var destinationStore = DestinationStore()   // ← 追加
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            ContentView()   // あなたのタブのルート
+                .environmentObject(favoriteContactsStore)
+                .environmentObject(destinationStore)                 // ← 追加
         }
     }
 }
