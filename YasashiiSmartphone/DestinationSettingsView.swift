@@ -52,7 +52,7 @@ struct DestinationSettingsView: View {
     }
 
     private var footerText: some View {
-        Text("削除するには、行を左にスワイプします。")
+        Text("削除する場合は、行を左にスワイプしてください。")
             .font(.footnote)
             .foregroundColor(.secondary)
     }
@@ -62,84 +62,67 @@ struct DestinationSettingsView: View {
     }
 }
 
-
-// MARK: - 場所追加フォーム（シンプル版）
-
-import SwiftUI
-import MapKit
-
-// MARK: - 場所追加フォーム（標準UI版）
+// MARK: - 場所追加フォーム（場所 → 名前 → メモ）
 
 struct EditDestinationView: View {
     @Environment(\.dismiss) private var dismiss
 
+    // 選ばれた場所
+    @State private var coordinate: CLLocationCoordinate2D? = nil
+    @State private var locationLabel: String = ""   // 名称のみ
+
     // 基本情報
     @State private var name: String = ""
     @State private var detail: String = ""
-
-    // 場所（どこをえらんだか）
-    @State private var coordinate: CLLocationCoordinate2D? = nil
-    @State private var locationLabel: String = ""   // 住所などの表示用
 
     let onSave: (Destination) -> Void
 
     var body: some View {
         NavigationStack {
             Form {
-                // ① 場所の名前
-                Section("場所の名前") {
-                    TextField("例：病院、スーパー、駅など", text: $name)
-                }
-
-                // ② 場所のえらび方
+                // ① 場所
                 Section("場所") {
-                    if let coordinate {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(locationLabel.isEmpty ? "場所がえらばれました" : locationLabel)
-                                .font(.subheadline)
-
-                            Text(String(format: "緯度 %.4f / 経度 %.4f",
-                                        coordinate.latitude,
-                                        coordinate.longitude))
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
-                        }
+                    if coordinate != nil {
+                        Text(locationLabel.isEmpty ? "選択した場所" : locationLabel)
+                            .font(.subheadline)
                     } else {
-                        Text("ことばでさがすか、地図から場所をえらんでください。")
+                        Text("下の「場所を選択」から、よく行く場所を選んでください。")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                     }
 
-                    // ことばでさがす（Appleマップの検索結果リスト）
-                    NavigationLink("ことばでさがす") {
-                        NameSearchView { item in
+                    NavigationLink {
+                        MapSearchPickerView(initialCoordinate: coordinate) { item in
+                            // 場所確定：座標と名称のみ保存
                             coordinate = item.placemark.coordinate
-                            locationLabel = makeLabel(from: item)
+                            locationLabel = item.name ?? ""
 
-                            // 名前がまだ空なら、候補の名称をそのまま使う
-                            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                               let itemName = item.name {
+                            // 場所の名前が空なら自動入力
+                            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                            if trimmed.isEmpty, let itemName = item.name {
                                 name = itemName
                             }
                         }
-                    }
-
-                    // 地図からえらぶ（地図中心の位置を選択）
-                    NavigationLink("地図からえらぶ") {
-                        MapPickerView(initialCoordinate: coordinate) { coord in
-                            coordinate = coord
-                            // 住所は逆引きしない。とりあえず「場所がえらばれました」とだけ表示。
-                            locationLabel = ""
+                    } label: {
+                        HStack {
+                            Image(systemName: "map")
+                            Text("場所を選択")
                         }
+                        .foregroundColor(Color.yasasumaGreen)   // アクセントカラー
                     }
+                }
+
+                // ② 場所の名前
+                Section("場所の名前") {
+                    TextField("例：病院、スーパー、駅など", text: $name)
                 }
 
                 // ③ メモ
-                Section("メモ（どこの場所か）") {
-                    TextField("例：〇〇クリニック、△△スーパーなど", text: $detail)
+                Section("メモ") {
+                    TextField("例：かかりつけの病院、いつも行くスーパー など", text: $detail)
                 }
             }
-            .navigationTitle("場所を追加")
+            .navigationTitle("よく行く場所を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -157,10 +140,10 @@ struct EditDestinationView: View {
         }
     }
 
-    // 保存できる条件：名前あり ＋ 場所が決まっている
+    // 保存条件：場所が決まっていて、名前がある
     private var canSave: Bool {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && coordinate != nil
+        return coordinate != nil && !trimmed.isEmpty
     }
 
     private func save() {
@@ -175,115 +158,34 @@ struct EditDestinationView: View {
         onSave(dest)
         dismiss()
     }
+}
 
-    // 検索結果から表示用のラベルをつくる
-    private func makeLabel(from item: MKMapItem) -> String {
-        if let name = item.name, let title = item.placemark.title {
-            if title.contains(name) {
-                return title
-            } else {
-                return "\(name) / \(title)"
-            }
-        } else {
-            return item.placemark.title ?? ""
-        }
+// MARK: - 地図から行き先を選ぶ（検索＋既存スポット）
+
+private struct MapSearchAnnotation: Identifiable {
+    let id = UUID()
+    let item: MKMapItem
+
+    var coordinate: CLLocationCoordinate2D {
+        item.placemark.coordinate
     }
 }
 
-// MARK: - 名前で場所をさがす画面
-
-struct NameSearchView: View {
+struct MapSearchPickerView: View {
     @Environment(\.dismiss) private var dismiss
 
-    @State private var keyword: String = ""
+    @State private var region: MKCoordinateRegion
+    @State private var searchText: String = ""
     @State private var results: [MKMapItem] = []
+
+    @State private var selectedItem: MKMapItem? = nil
+    @State private var selectedCoordinate: CLLocationCoordinate2D? = nil  // ★選択中座標
     @State private var isSearching: Bool = false
 
     let onSelect: (MKMapItem) -> Void
 
-    var body: some View {
-        List {
-            if isSearching {
-                HStack {
-                    Spacer()
-                    ProgressView("検索中…")
-                    Spacer()
-                }
-            } else if results.isEmpty && !keyword.isEmpty {
-                Text("場所が見つかりませんでした。")
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(results, id: \.self) { item in
-                    Button {
-                        onSelect(item)
-                        dismiss()
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.name ?? "名称なし")
-                                .font(.body)
-                            if let title = item.placemark.title {
-                                Text(title)
-                                    .font(.footnote)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(2)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-            }
-        }
-        .navigationTitle("ことばでさがす")
-        .navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $keyword,
-                    placement: .navigationBarDrawer,
-                    prompt: "住所や施設名")
-        .onSubmit(of: .search) {
-            search()
-        }
-        .onChange(of: keyword) { newValue in
-            if newValue.isEmpty {
-                results = []
-            }
-        }
-    }
-
-    private func search() {
-        let trimmed = keyword.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        isSearching = true
-        results = []
-
-        let request = MKLocalSearch.Request()
-        request.naturalLanguageQuery = trimmed
-
-        let search = MKLocalSearch(request: request)
-        search.start { response, error in
-            DispatchQueue.main.async {
-                isSearching = false
-                if let response = response {
-                    results = response.mapItems
-                } else {
-                    results = []
-                }
-            }
-        }
-    }
-}
-
-// MARK: - 地図から場所をえらぶ画面
-
-struct MapPickerView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var region: MKCoordinateRegion
-
-    let onSelect: (CLLocationCoordinate2D) -> Void
-
     init(initialCoordinate: CLLocationCoordinate2D?,
-         onSelect: @escaping (CLLocationCoordinate2D) -> Void) {
-
+         onSelect: @escaping (MKMapItem) -> Void) {
         self.onSelect = onSelect
 
         let center = initialCoordinate ?? CLLocationCoordinate2D(
@@ -298,37 +200,125 @@ struct MapPickerView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                Map(coordinateRegion: $region)
-                    .ignoresSafeArea(edges: .bottom)
-
-                // 画面中央のピン（地図だけ動く）
-                Image(systemName: "mappin.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(Color.yasasumaGreen)
-                    .shadow(radius: 4)
+        ZStack(alignment: .bottom) {
+            Map(
+                coordinateRegion: $region,
+                annotationItems: annotations
+            ) { annotation in
+                MapAnnotation(coordinate: annotation.coordinate) {
+                    Button {
+                        select(annotation: annotation)
+                    } label: {
+                        let isSelected = isAnnotationSelected(annotation)
+                        Image(systemName: isSelected ? "mappin.circle.fill"
+                                                     : "mappin.circle")
+                            .font(.system(size: 28))
+                            .foregroundColor(isSelected ? .red : Color.yasasumaGreen)
+                            .shadow(radius: 3)
+                    }
+                }
             }
+            .ignoresSafeArea(edges: .bottom)
 
             VStack(spacing: 8) {
-                Text("地図を動かして、ピンの場所を決めてください。")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
+                if let selectedItem {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(selectedItem.name ?? "名称なし")
+                            .font(.body.bold())
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        // 名称のみで十分なので住所は出さない
+                    }
+                } else {
+                    Text("上の検索欄で名称や住所を検索し、地図上のピンをタップして行き先を選択してください。")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
                 Button {
-                    onSelect(region.center)
-                    dismiss()
+                    if let selectedItem {
+                        onSelect(selectedItem)
+                        dismiss()
+                    }
                 } label: {
-                    Text("この場所をえらぶ")
+                    Text("この行き先を設定")
                         .font(.system(size: 18, weight: .bold))
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(selectedItem == nil)
             }
             .padding()
             .background(.thinMaterial)
         }
-        .navigationTitle("地図からえらぶ")
+        .navigationTitle("地図から行き先を選ぶ")
         .navigationBarTitleDisplayMode(.inline)
+        .searchable(
+            text: $searchText,
+            placement: .navigationBarDrawer,
+            prompt: "名称や住所で検索"
+        )
+        .onSubmit(of: .search) {
+            performSearch()
+        }
+        .onChange(of: searchText) { newValue in
+            if newValue.isEmpty {
+                results = []
+                selectedItem = nil
+                selectedCoordinate = nil
+            }
+        }
+    }
+
+    // ピンとして表示する候補
+    private var annotations: [MapSearchAnnotation] {
+        if results.isEmpty, let selectedItem {
+            return [MapSearchAnnotation(item: selectedItem)]
+        } else {
+            return results.map { MapSearchAnnotation(item: $0) }
+        }
+    }
+
+    // このアノテーションが選択中かどうか（座標の緯度・経度で判定）
+    private func isAnnotationSelected(_ annotation: MapSearchAnnotation) -> Bool {
+        guard let selected = selectedCoordinate else { return false }
+        return selected.latitude == annotation.coordinate.latitude
+        && selected.longitude == annotation.coordinate.longitude
+    }
+
+    private func select(annotation: MapSearchAnnotation) {
+        selectedItem = annotation.item
+        selectedCoordinate = annotation.coordinate
+        region.center = annotation.coordinate
+    }
+
+    private func performSearch() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isSearching = true
+        results = []
+        selectedItem = nil
+        selectedCoordinate = nil
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = trimmed
+        request.region = region
+
+        let search = MKLocalSearch(request: request)
+        search.start { response, error in
+            DispatchQueue.main.async {
+                isSearching = false
+                if let response = response {
+                    results = response.mapItems
+                    if let first = response.mapItems.first {
+                        region.center = first.placemark.coordinate
+                    }
+                } else {
+                    results = []
+                }
+            }
+        }
     }
 }
+

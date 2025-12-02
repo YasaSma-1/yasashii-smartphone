@@ -68,7 +68,7 @@ struct ContentView: View {
                             }
 
                             NavigationLink {
-                                SettingsView()
+                                SettingsGateView()
                             } label: {
                                 BigIconButton(
                                     systemName: "gearshape.fill",

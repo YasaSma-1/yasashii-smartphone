@@ -5,19 +5,19 @@ struct SettingsView: View {
         ZStack {
             Color(.systemGray6)
                 .ignoresSafeArea()
-
+            
             ScrollView {
-                VStack(alignment: .leading, spacing: 32) {
+                VStack(spacing: 24) {
                     // タイトル
                     Text("設定")
                         .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 24)
-
+                    
                     // 📞 電話の設定
                     VStack(alignment: .leading, spacing: 12) {
                         Text("電話の設定")
                             .font(.system(size: 20, weight: .bold))
+                            .padding(.horizontal, 24)
 
                         VStack(spacing: 12) {
                             NavigationLink {
@@ -27,17 +27,19 @@ struct SettingsView: View {
                                     iconName: "person.2.fill",
                                     iconColor: Color.yasasumaGreen,
                                     title: "よくかける相手（電話帳）",
-                                    subtitle: "「電話」画面に出す相手を確認できます。"
+                                    subtitle: "「電話」画面に出す相手を確認・変更できます。"
                                 )
                             }
                         }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
 
-                    // 🗺️ 地図の設定
+                    // 🗺 地図の設定
                     VStack(alignment: .leading, spacing: 12) {
                         Text("地図の設定")
                             .font(.system(size: 20, weight: .bold))
+                            .padding(.horizontal, 24)
 
                         VStack(spacing: 12) {
                             NavigationLink {
@@ -51,157 +53,82 @@ struct SettingsView: View {
                                 )
                             }
                         }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
 
                     // 🔒 アプリの安全設定
                     VStack(alignment: .leading, spacing: 12) {
                         Text("アプリの安全設定")
                             .font(.system(size: 20, weight: .bold))
+                            .padding(.horizontal, 24)
 
-                        SettingsRowCard(
-                            iconName: "lock.fill",
-                            title: "設定画面に入る合言葉",
-                            subtitle: "※あとで追加予定です。今はまだ使えません。"
-                        )
-                        .opacity(0.5)
+                        VStack(spacing: 12) {
+                            NavigationLink {
+                                PasscodeSettingsView()
+                            } label: {
+                                SettingsMenuCard(
+                                    iconName: "lock.fill",
+                                    iconColor: Color.yasasumaGreen,
+                                    title: "設定画面に入るパスコード（4桁）",
+                                    subtitle: "設定画面をひらく前に4桁の数字を入力させるかどうかを設定できます。"
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
                     }
-                    .padding(.horizontal, 24)
+                    .padding(.top, 24)
 
                     Spacer(minLength: 24)
                 }
-                .padding(.bottom, 24)
             }
         }
     }
 }
-    
-    /// 設定の1行カード（スキューモーフィック気味）
-    struct SettingsRowCard: View {
-        let iconName: String
-        let title: String
-        let subtitle: String?
-        
-        var body: some View {
-            HStack(spacing: 12) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color.white,
-                                    Color(.systemGray5)
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .shadow(color: .white.opacity(0.8),
-                                radius: 2,
-                                x: -1,
-                                y: -1)
-                        .shadow(color: .black.opacity(0.2),
-                                radius: 3,
-                                x: 2,
-                                y: 2)
-                    
-                    Image(systemName: iconName)
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.yasasumaGreen)
-                }
-                .frame(width: 44, height: 44)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 18, weight: .semibold, design: .rounded))
-                    if let subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.secondary.opacity(0.7))
-            }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white,
-                                Color(.systemGray5)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: .white.opacity(0.8),
-                            radius: 3,
-                            x: -2,
-                            y: -2)
-                    .shadow(color: .black.opacity(0.2),
-                            radius: 4,
-                            x: 2,
-                            y: 3)
-            )
-        }
-    }
-    
-    // 設定メニュー共通カード
-    struct SettingsMenuCard: View {
-        let iconName: String
-        let iconColor: Color
-        let title: String
-        let subtitle: String
-        
-        var body: some View {
-            HStack(spacing: 12) {
-                Image(systemName: iconName)
-                    .font(.system(size: 22))
-                    .foregroundColor(.white)
+
+// MARK: - 共通カードUI
+
+struct SettingsMenuCard: View {
+    let iconName: String
+    let iconColor: Color
+    let title: String
+    let subtitle: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 16) {
+            // アイコン
+            ZStack {
+                Circle()
+                    .fill(iconColor)
                     .frame(width: 40, height: 40)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(iconColor)
-                    )
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 18, weight: .semibold))
-                        .foregroundColor(Color(.label))
-                    Text(subtitle)
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                
-                Spacer()
-                
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.secondary)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 24)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color.white, Color(.systemGray5)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .shadow(color: .white.opacity(0.8),
-                            radius: 3, x: -2, y: -2)
                     .shadow(color: .black.opacity(0.15),
-                            radius: 4, x: 2, y: 3)
-            )
+                            radius: 3, x: 0, y: 2)
+
+                Image(systemName: iconName)
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundColor(.white)
+            }
+
+            // タイトル＋サブタイトル
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundColor(.primary)
+
+                Text(subtitle)
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.leading)   // ★ 複数行でも左揃え
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.08),
+                        radius: 3, x: 0, y: 2)
+        )
     }
-    
+}
 

@@ -1,19 +1,11 @@
 import SwiftUI
 
 // ======================================
-// 予定データ
-// ======================================
-struct YasasumaEvent: Identifiable {
-    let id = UUID()
-    var date: Date        // 日付＋時間
-    var title: String     // 内容
-}
-
-// ======================================
 // 予定（1日表示がメイン）
 // ======================================
 struct CalendarView: View {
-    @State private var events: [YasasumaEvent] = []
+    // ★ ここで EventsStore を受け取る
+    @EnvironmentObject var eventsStore: EventsStore
 
     @State private var selectedDate: Date = Date()
 
@@ -37,23 +29,33 @@ struct CalendarView: View {
                     } label: {
                         Image(systemName: "chevron.left.circle.fill")
                             .font(.system(size: 30))
+                            .foregroundColor(Color.yasasumaGreen)
                     }
 
-                    // 日付 + 曜日（タップでカレンダー表示）
-                    Button {
-                        showingCalendarPicker = true
-                    } label: {
+                    // 日付 + 曜日（中央）＋ 下に「カレンダーから日付を選択」ボタン
+                    VStack(spacing: 14) {
                         VStack(spacing: 4) {
                             Text(dateTitle(for: selectedDate))
-                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
 
                             Text(weekdayTitle(for: selectedDate))
-                                .font(.system(size: 20, weight: .medium, design: .rounded))
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 28, weight: .medium, design: .rounded))
+                                .foregroundColor(.primary)
                         }
-                        .frame(maxWidth: .infinity)
+
+                        Button {
+                            showingCalendarPicker = true
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar")
+                                Text("カレンダーから日付を選択")
+                            }
+                            .font(.system(size: 18, weight: .semibold))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Color.yasasumaGreen)
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .center)
 
                     // 次の日へ
                     Button {
@@ -61,30 +63,11 @@ struct CalendarView: View {
                     } label: {
                         Image(systemName: "chevron.right.circle.fill")
                             .font(.system(size: 30))
+                            .foregroundColor(Color.yasasumaGreen)
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
-
-                // 今日に戻るボタン
-                Button {
-                    selectedDate = Date()
-                } label: {
-                    Text("今日の日付にもどる")
-                        .font(.system(size: 18, weight: .semibold))
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 20)
-                        .frame(maxWidth: .infinity)
-                        .background(
-                            RoundedRectangle(cornerRadius: 22)
-                                .fill(Color.white)
-                                .shadow(color: .black.opacity(0.12),
-                                        radius: 3,
-                                        x: 0,
-                                        y: 2)
-                        )
-                }
-                .padding(.horizontal, 24)
 
                 Divider()
                     .padding(.horizontal, 16)
@@ -115,21 +98,42 @@ struct CalendarView: View {
                 Spacer()
             }
         }
-        // ナビゲーションバー（タイトルなし）
+        // 下部ツールバーに「今日」「予定を追加」
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("予定を追加") {
-                    showingNewEvent = true
+            ToolbarItemGroup(placement: .bottomBar) {
+                // 今日の日付にもどる（左）
+                Button {
+                    selectedDate = Date()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.uturn.backward.circle")
+                        Text("今日にもどる")
+                    }
                 }
                 .font(.system(size: 18, weight: .semibold))
+
+                Spacer()
+
+                // 予定を追加（右・アクセントカラー）
+                Button {
+                    showingNewEvent = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "plus.circle.fill")
+                        Text("予定を追加")
+                    }
+                }
+                .font(.system(size: 18, weight: .semibold))
+                .tint(Color.yasasumaGreen)
             }
         }
-        // 新規予定作成画面（シート遷移）
+        // 新規予定作成画面（シート）
         .sheet(isPresented: $showingNewEvent) {
             NewEventView(
                 baseDate: selectedDate
             ) { newEvent in
-                events.append(newEvent)
+                // ★ ここでストアに追加
+                eventsStore.events.append(newEvent)
             }
         }
         // カレンダーから日付選択（シート）
@@ -170,7 +174,7 @@ struct CalendarView: View {
     }
 
     private func eventsFor(date: Date) -> [YasasumaEvent] {
-        events
+        eventsStore.events
             .filter { calendar.isDate($0.date, inSameDayAs: date) }
             .sorted { $0.date < $1.date }
     }
@@ -198,6 +202,10 @@ struct CalendarView: View {
         return f.string(from: date)
     }
 }
+
+
+
+
 
 // ======================================
 // 新規予定作成画面
