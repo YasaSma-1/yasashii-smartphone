@@ -2,15 +2,19 @@ import SwiftUI
 
 // ======================================
 // 予定（1日表示がメイン）
+// ※ YasasumaEvent の struct は EventsStore.swift 側にのみ定義しておくこと！
 // ======================================
 struct CalendarView: View {
-    // ★ ここで EventsStore を受け取る
+    // 予定データのストア
     @EnvironmentObject var eventsStore: EventsStore
+    // 課金状態のストア
+    @EnvironmentObject var purchaseStore: PurchaseStore
 
     @State private var selectedDate: Date = Date()
 
     @State private var showingNewEvent = false
     @State private var showingCalendarPicker = false
+    @State private var showingPaywall = false   // ★ 2件目以降で表示
 
     private let calendar = Calendar.current
 
@@ -116,6 +120,7 @@ struct CalendarView: View {
 
                 // 予定を追加（右・アクセントカラー）
                 Button {
+                    // 入力画面自体は常に開いて OK
                     showingNewEvent = true
                 } label: {
                     HStack(spacing: 4) {
@@ -132,13 +137,17 @@ struct CalendarView: View {
             NewEventView(
                 baseDate: selectedDate
             ) { newEvent in
-                // ★ ここでストアに追加
-                eventsStore.events.append(newEvent)
+                handleSave(newEvent)   // ★ 保存時に 1日1件制限チェック
             }
         }
         // カレンダーから日付選択（シート）
         .sheet(isPresented: $showingCalendarPicker) {
             CalendarPickerView(selectedDate: $selectedDate)
+        }
+        // 2件目以降で出すペイウォール
+        .sheet(isPresented: $showingPaywall) {
+            PaywallView()
+                .environmentObject(purchaseStore)
         }
     }
 
@@ -179,6 +188,31 @@ struct CalendarView: View {
             .sorted { $0.date < $1.date }
     }
 
+    // MARK: - 保存時の課金チェック（Free = 1日1件まで）
+
+    private func handleSave(_ newEvent: YasasumaEvent) {
+        // 保存対象の日付を、画面側の選択日としても反映
+        selectedDate = newEvent.date
+
+        if purchaseStore.isProUnlocked {
+            eventsStore.events.append(newEvent)
+            return
+        }
+
+        // Free版: 同じ日の予定がすでに1件あるかどうか
+        let sameDayCount = eventsStore.events.filter {
+            calendar.isDate($0.date, inSameDayAs: newEvent.date)
+        }.count
+
+        if sameDayCount >= 1 {
+            // 2件目 → 保存せずペイウォール
+            showingPaywall = true
+        } else {
+            // まだ0件 → 保存OK
+            eventsStore.events.append(newEvent)
+        }
+    }
+
     // MARK: - 表示用文字列
 
     private func dateTitle(for date: Date) -> String {
@@ -204,13 +238,8 @@ struct CalendarView: View {
 }
 
 
-
-
-
 // ======================================
 // 新規予定作成画面
-// ・遷移なしでその場で日付・時刻を変更
-// ・ピッカーはコンパクトスタイル
 // ======================================
 
 struct NewEventView: View {
@@ -295,8 +324,9 @@ struct NewEventView: View {
     }
 }
 
+
 // ======================================
-// カレンダーで日付をえらぶ画面
+// カレンダーで日付をえらぶ画面（UI変更なし）
 // ======================================
 
 struct CalendarPickerView: View {
@@ -463,4 +493,8 @@ struct CalendarPickerView: View {
         return result
     }
 }
+
+// ======================================
+// ペイウォール画面（シンプル版・電話帳なども含めた説明）
+// ======================================
 

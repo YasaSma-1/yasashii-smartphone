@@ -1,10 +1,33 @@
 import SwiftUI
 
+// 無料版で登録できる「よくかける相手」の上限
+private let freeFavoriteLimit = 2
+
+// シートの種類（編集 or ペイウォール）
+private enum FavoriteContactsSheet: Identifiable {
+    case edit(FavoriteContact?)  // nil のときは新規
+    case paywall
+
+    var id: String {
+        switch self {
+        case .edit(let contact):
+            if let c = contact {
+                return "edit-\(c.id.uuidString)"
+            } else {
+                return "edit-new"
+            }
+        case .paywall:
+            return "paywall"
+        }
+    }
+}
+
 struct FavoriteContactsSettingsView: View {
     @EnvironmentObject var favoriteContactsStore: FavoriteContactsStore
+    @EnvironmentObject var purchaseStore: PurchaseStore
 
-    @State private var editingContact: FavoriteContact?
-    @State private var isPresentingEditor = false
+    // どのシートを出すか
+    @State private var activeSheet: FavoriteContactsSheet?
 
     var body: some View {
         ZStack {
@@ -17,11 +40,17 @@ struct FavoriteContactsSettingsView: View {
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .padding(.top, 24)
 
-                    Text("「電話」の画面に出す相手をここで編集します。\nお子さんなどが一緒に設定してあげることを想定しています。")
-                        .font(.system(size: 15))
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.leading)
-                        .padding(.horizontal, 24)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("「電話」の画面に出す相手をここで編集します。")
+                            .font(.system(size: 15))
+                            .foregroundColor(.secondary)
+
+                        Text("無料版では、よくかける相手は 2件 まで登録できます。")
+                            .font(.system(size: 14))
+                            .foregroundColor(.secondary)
+                    }
+                    .multilineTextAlignment(.leading)
+                    .padding(.horizontal, 24)
 
                     VStack(spacing: 12) {
                         if favoriteContactsStore.favorites.isEmpty {
@@ -34,9 +63,8 @@ struct FavoriteContactsSettingsView: View {
                         } else {
                             ForEach(favoriteContactsStore.favorites) { contact in
                                 Button {
-                                    // 編集モードでシートを開く
-                                    editingContact = contact
-                                    isPresentingEditor = true
+                                    // 既存の相手は常に編集OK（制限なし）
+                                    activeSheet = .edit(contact)
                                 } label: {
                                     FavoriteContactSettingsRow(contact: contact)
                                 }
@@ -56,32 +84,58 @@ struct FavoriteContactsSettingsView: View {
             // 右上の＋ボタン → 新規追加
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    editingContact = nil
-                    isPresentingEditor = true
+                    handleAddButtonTapped()
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        // 追加・編集シート
-        .sheet(isPresented: $isPresentingEditor) {
-            FavoriteContactEditSheet(
-                contact: editingContact,
-                onSave: { name, phone in
-                    if let editing = editingContact {
-                        favoriteContactsStore.update(contact: editing, name: name, phone: phone)
-                    } else {
-                        favoriteContactsStore.add(name: name, phone: phone)
+        // 追加・編集・ペイウォールのシート
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .edit(let editingContact):
+                FavoriteContactEditSheet(
+                    contact: editingContact,
+                    onSave: { name, phone in
+                        if let editing = editingContact {
+                            favoriteContactsStore.update(
+                                contact: editing,
+                                name: name,
+                                phone: phone
+                            )
+                        } else {
+                            favoriteContactsStore.add(name: name, phone: phone)
+                        }
+                    },
+                    onDelete: editingContact.map { contact in
+                        {
+                            favoriteContactsStore.delete(contact: contact)
+                        }
                     }
-                    editingContact = nil
-                },
-                onDelete: editingContact.map { contact in
-                    {
-                        favoriteContactsStore.delete(contact: contact)
-                        editingContact = nil
-                    }
-                }
-            )
+                )
+
+            case .paywall:
+                PaywallView()
+                    .environmentObject(purchaseStore)
+            }
+        }
+    }
+
+    // MARK: - 新規追加ボタンタップ時の制御
+
+    private func handleAddButtonTapped() {
+        // 有料版なら制限なし
+        if purchaseStore.isProUnlocked {
+            activeSheet = .edit(nil)
+            return
+        }
+
+        // 無料版で 2件以上登録済み → ペイウォール
+        if favoriteContactsStore.favorites.count >= freeFavoriteLimit {
+            activeSheet = .paywall
+        } else {
+            // 2件未満なら新規追加OK
+            activeSheet = .edit(nil)
         }
     }
 }
@@ -133,6 +187,7 @@ struct FavoriteContactSettingsRow: View {
     }
 }
 
+// MARK: - 追加・編集シート
 
 struct FavoriteContactEditSheet: View {
     let contact: FavoriteContact?          // nil のときは新規
@@ -190,7 +245,6 @@ struct FavoriteContactEditSheet: View {
                         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedPhone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmedName.isEmpty, !trimmedPhone.isEmpty else {
-                            // ざっくり：空なら何もしないで戻る
                             dismiss()
                             return
                         }

@@ -7,11 +7,7 @@ struct SettingsView: View {
                 .ignoresSafeArea()
             
             ScrollView {
-                VStack(spacing: 24) {
-                    // タイトル
-                    Text("設定")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .padding(.top, 24)
+                VStack(spacing: 16) {
                     
                     // 📞 電話の設定
                     VStack(alignment: .leading, spacing: 12) {
@@ -33,7 +29,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 24)
                     }
-                    .padding(.top, 24)
+                    .padding(.top, 20)
 
                     // 🗺 地図の設定
                     VStack(alignment: .leading, spacing: 12) {
@@ -55,7 +51,7 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 24)
                     }
-                    .padding(.top, 24)
+                    .padding(.top, 20)
 
                     // 🔒 アプリの安全設定
                     VStack(alignment: .leading, spacing: 12) {
@@ -77,12 +73,36 @@ struct SettingsView: View {
                         }
                         .padding(.horizontal, 24)
                     }
-                    .padding(.top, 24)
+                    .padding(.top, 20)
+
+                    // 💳 アプリのご利用と課金（いちばん下）
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("アプリのご利用と課金")
+                            .font(.system(size: 20, weight: .bold))
+                            .padding(.horizontal, 24)
+
+                        VStack(spacing: 12) {
+                            NavigationLink {
+                                PurchaseSettingsView()
+                            } label: {
+                                SettingsMenuCard(
+                                    iconName: "creditcard.fill",
+                                    iconColor: Color.yasasumaGreen,
+                                    title: "課金・ライセンス",
+                                    subtitle: "無料版の制限と購入状況を確認できます。"
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .padding(.top, 20)
 
                     Spacer(minLength: 24)
                 }
             }
         }
+        .navigationTitle("設定")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -118,7 +138,7 @@ struct SettingsMenuCard: View {
                 Text(subtitle)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.leading)   // ★ 複数行でも左揃え
+                    .multilineTextAlignment(.leading)   // 複数行でも左揃え
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

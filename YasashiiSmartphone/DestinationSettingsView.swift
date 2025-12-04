@@ -5,8 +5,10 @@ import MapKit
 
 struct DestinationSettingsView: View {
     @EnvironmentObject var destinationStore: DestinationStore
+    @EnvironmentObject var purchaseStore: PurchaseStore      // ★ 課金状態
 
     @State private var showingAddSheet = false
+    @State private var showingPaywall = false                // ★ ペイウォール表示
 
     var body: some View {
         NavigationStack {
@@ -39,14 +41,22 @@ struct DestinationSettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("追加") {
-                        showingAddSheet = true
+                        handleAddTapped()        // ★ ここで制御
                     }
                 }
             }
         }
+        // 追加フォーム
         .sheet(isPresented: $showingAddSheet) {
             EditDestinationView { newDest in
                 destinationStore.destinations.append(newDest)
+            }
+        }
+        // ペイウォール
+        .sheet(isPresented: $showingPaywall) {
+            NavigationStack {
+                PaywallView()
+                    .environmentObject(purchaseStore)
             }
         }
     }
@@ -59,6 +69,24 @@ struct DestinationSettingsView: View {
 
     private func deleteDestinations(at offsets: IndexSet) {
         destinationStore.destinations.remove(atOffsets: offsets)
+    }
+
+    // MARK: - 追加ボタン押下時の制御（無料版は2件まで）
+
+    private func handleAddTapped() {
+        if purchaseStore.isProUnlocked {
+            // 有料版なら制限なし
+            showingAddSheet = true
+            return
+        }
+
+        // 無料版：2件までは追加OK
+        if destinationStore.destinations.count < 2 {
+            showingAddSheet = true
+        } else {
+            // 3件目以降はペイウォールへ
+            showingPaywall = true
+        }
     }
 }
 
@@ -226,7 +254,6 @@ struct MapSearchPickerView: View {
                         Text(selectedItem.name ?? "名称なし")
                             .font(.body.bold())
                             .frame(maxWidth: .infinity, alignment: .leading)
-                        // 名称のみで十分なので住所は出さない
                     }
                 } else {
                     Text("上の検索欄で名称や住所を検索し、地図上のピンをタップして行き先を選択してください。")
