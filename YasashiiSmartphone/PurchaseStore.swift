@@ -1,7 +1,13 @@
-// PurchaseStore.swift
-
 import Foundation
 import Combine
+
+/// 課金プラン種別
+enum YasasumaPlan: String, CaseIterable, Identifiable {
+    case monthly   // 月額
+    case yearly    // 年額
+
+    var id: String { rawValue }
+}
 
 /// やさしいスマホの課金状態を管理するストア
 /// 今はシンプルに「購入済みかどうか」だけを扱う。

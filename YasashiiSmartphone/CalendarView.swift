@@ -14,7 +14,7 @@ struct CalendarView: View {
 
     @State private var showingNewEvent = false
     @State private var showingCalendarPicker = false
-    @State private var showingPaywall = false   // ★ 2件目以降で表示
+    @State private var showingPaywall = false   // Free で1日1件の上限に達した時に表示
 
     private let calendar = Calendar.current
 
@@ -120,8 +120,7 @@ struct CalendarView: View {
 
                 // 予定を追加（右・アクセントカラー）
                 Button {
-                    // 入力画面自体は常に開いて OK
-                    showingNewEvent = true
+                    handleAddEventButtonTapped()     // ★ ここで課金チェック & ペイウォール
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "plus.circle.fill")
@@ -137,17 +136,40 @@ struct CalendarView: View {
             NewEventView(
                 baseDate: selectedDate
             ) { newEvent in
-                handleSave(newEvent)   // ★ 保存時に 1日1件制限チェック
+                handleSave(newEvent)   // ★ ここでは単純に保存のみ
             }
         }
         // カレンダーから日付選択（シート）
         .sheet(isPresented: $showingCalendarPicker) {
             CalendarPickerView(selectedDate: $selectedDate)
         }
-        // 2件目以降で出すペイウォール
+        // Free の1日1件制限に到達したときのペイウォール
         .sheet(isPresented: $showingPaywall) {
             PaywallView()
                 .environmentObject(purchaseStore)
+        }
+    }
+
+    // MARK: - 予定を追加ボタンタップ時の処理（Free = 1日1件チェック）
+
+    private func handleAddEventButtonTapped() {
+        // 有料版ならそのまま予定追加シートを開く
+        if purchaseStore.isProUnlocked {
+            showingNewEvent = true
+            return
+        }
+
+        // Free版：選択中の日付の予定件数をチェック
+        let sameDayCount = eventsStore.events.filter {
+            calendar.isDate($0.date, inSameDayAs: selectedDate)
+        }.count
+
+        if sameDayCount >= 1 {
+            // すでにこの日に1件登録済み → シートは開かずにペイウォール表示
+            showingPaywall = true
+        } else {
+            // まだ0件 → 予定入力シートを開く
+            showingNewEvent = true
         }
     }
 
@@ -188,29 +210,15 @@ struct CalendarView: View {
             .sorted { $0.date < $1.date }
     }
 
-    // MARK: - 保存時の課金チェック（Free = 1日1件まで）
+    // MARK: - 保存時（ここでは単純に保存だけ）
 
     private func handleSave(_ newEvent: YasasumaEvent) {
         // 保存対象の日付を、画面側の選択日としても反映
         selectedDate = newEvent.date
 
-        if purchaseStore.isProUnlocked {
-            eventsStore.events.append(newEvent)
-            return
-        }
-
-        // Free版: 同じ日の予定がすでに1件あるかどうか
-        let sameDayCount = eventsStore.events.filter {
-            calendar.isDate($0.date, inSameDayAs: newEvent.date)
-        }.count
-
-        if sameDayCount >= 1 {
-            // 2件目 → 保存せずペイウォール
-            showingPaywall = true
-        } else {
-            // まだ0件 → 保存OK
-            eventsStore.events.append(newEvent)
-        }
+        // 課金チェックは「予定を追加」ボタン側で済ませる想定なので、
+        // ここでは単純に保存のみ行う
+        eventsStore.events.append(newEvent)
     }
 
     // MARK: - 表示用文字列
@@ -239,7 +247,7 @@ struct CalendarView: View {
 
 
 // ======================================
-// 新規予定作成画面
+// 新規予定作成画面（ここはそのまま）
 // ======================================
 
 struct NewEventView: View {
@@ -493,8 +501,4 @@ struct CalendarPickerView: View {
         return result
     }
 }
-
-// ======================================
-// ペイウォール画面（シンプル版・電話帳なども含めた説明）
-// ======================================
 
