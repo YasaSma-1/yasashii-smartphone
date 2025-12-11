@@ -15,35 +15,33 @@ struct PasscodeSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                // パスコードのON/OFF
-                Section {
+                // 🔵 1つの島にまとめたパスコード設定
+                Section(
+                    header: Text("パスコード設定"),
+                    footer: footerText
+                ) {
                     Toggle(isOn: $isEnabled) {
                         Text("パスコードを使う")
                     }
                     .font(.system(size: 18))
 
-                    Text("オンにすると、設定画面を開く前に4桁の数字を入力する画面が出ます。")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
+                    if isEnabled {
+                        TextField("4桁の数字を入力してください", text: $tempPasscode)
+                            .keyboardType(.numberPad)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                            .font(.system(size: 24))
+                            .multilineTextAlignment(.center)
+                            .onChange(of: tempPasscode) { newValue in
+                                // 数字以外を削除＆4桁まで
+                                let digits = newValue.filter { $0.isNumber }
+                                tempPasscode = String(digits.prefix(4))
+                            }
 
-                // パスコード本体
-                Section(header: Text("パスコードの内容")) {
-                    TextField("4桁の数字を入力してください", text: $tempPasscode)
-                        .keyboardType(.numberPad)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
-                        .font(.system(size: 24))
-                        .multilineTextAlignment(.center)
-                        .onChange(of: tempPasscode) { newValue in
-                            // 数字以外を削除＆4桁まで
-                            let digits = newValue.filter { $0.isNumber }
-                            tempPasscode = String(digits.prefix(4))
-                        }
-
-                    Text("例：1234、0523 など。忘れない数字にしてください。")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
+                        Text("例：1234、0523 など。忘れない数字にしてください。")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
             .navigationTitle("パスコードの設定")
@@ -71,7 +69,20 @@ struct PasscodeSettingsView: View {
         }
     }
 
+    // フッターテキスト（説明文）
+    private var footerText: some View {
+        Text("オンにすると、設定画面を開く前に4桁の数字を入力する画面が出ます。")
+            .font(.footnote)
+            .foregroundColor(.secondary)
+    }
+
     private func save() {
+        // パスコードを使わない場合は、現在のトグル状態だけ保存して閉じてもOK
+        guard isEnabled else {
+            showSavedAlert = true
+            return
+        }
+
         let digits = tempPasscode.filter { $0.isNumber }
         guard digits.count == 4 else {
             showInvalidAlert = true
@@ -79,7 +90,6 @@ struct PasscodeSettingsView: View {
         }
 
         storedPasscode = digits
-        // isEnabled はトグルの状態に任せる
         showSavedAlert = true
     }
 }

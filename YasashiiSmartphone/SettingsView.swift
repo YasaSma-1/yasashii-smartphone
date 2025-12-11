@@ -45,7 +45,29 @@ struct SettingsView: View {
                                     iconName: "mappin.and.ellipse",
                                     iconColor: Color.yasasumaGreen,
                                     title: "よく行く場所",
-                                    subtitle: "「道をみる」画面で使う行き先を設定できます。"
+                                    subtitle: "「地図」画面で使う行き先を設定できます。"
+                                )
+                            }
+                        }
+                        .padding(.horizontal, 24)
+                    }
+                    .padding(.top, 20)
+
+                    // 🏠 ホーム画面に表示するアプリ
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("ホーム画面")
+                            .font(.system(size: 20, weight: .bold))
+                            .padding(.horizontal, 24)
+
+                        VStack(spacing: 12) {
+                            NavigationLink {
+                                HomeAppsSettingsView()
+                            } label: {
+                                SettingsMenuCard(
+                                    iconName: "square.grid.2x2",
+                                    iconColor: Color.yasasumaGreen,
+                                    title: "ホームに表示するアプリ",
+                                    subtitle: "ホーム画面に出すアプリをえらべます。"
                                 )
                             }
                         }
@@ -88,8 +110,8 @@ struct SettingsView: View {
                                 SettingsMenuCard(
                                     iconName: "creditcard.fill",
                                     iconColor: Color.yasasumaGreen,
-                                    title: "課金・ライセンス",
-                                    subtitle: "無料版の制限と購入状況を確認できます。"
+                                    title: "有料プラン（やさスマ プレミアム）",
+                                    subtitle: "無料版の制限と、ご利用中のプランを確認できます。"
                                 )
                             }
                         }
@@ -138,7 +160,7 @@ struct SettingsMenuCard: View {
                 Text(subtitle)
                     .font(.system(size: 14))
                     .foregroundColor(.secondary)
-                    .multilineTextAlignment(.leading)   // 複数行でも左揃え
+                    .multilineTextAlignment(.leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

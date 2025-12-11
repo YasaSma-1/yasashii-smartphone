@@ -1,5 +1,5 @@
 import SwiftUI
-import Combine 
+import Combine
 
 struct ContentView: View {
     // ⏰ 今の日時を持っておく
@@ -12,6 +12,13 @@ struct ContentView: View {
         GridItem(.flexible(), spacing: 20),
         GridItem(.flexible(), spacing: 20)
     ]
+
+    // ホームに表示するアプリ（デフォルトは全部 true）
+    @AppStorage("yasasuma_showPhone")   private var showPhone: Bool   = true
+    @AppStorage("yasasuma_showCalendar") private var showCalendar: Bool = true
+    @AppStorage("yasasuma_showMap")     private var showMap: Bool     = true
+    @AppStorage("yasasuma_showCamera")  private var showCamera: Bool  = true
+    @AppStorage("yasasuma_showPhotos")  private var showPhotos: Bool  = true
 
     var body: some View {
         NavigationStack {
@@ -38,35 +45,68 @@ struct ContentView: View {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, alignment: .center)
 
-                        // 📱 2×2 正方形ボタン
+                        // 📱 2×N 正方形ボタン（表示ONのアプリだけ並べる）
                         LazyVGrid(columns: columns, spacing: 20) {
-                            NavigationLink {
-                                PhoneView()
-                            } label: {
-                                BigIconButton(
-                                    systemName: "phone.fill",
-                                    title: "電話"
-                                )
+
+                            // 1段目：左 電話 / 右 予定
+                            if showPhone {
+                                NavigationLink {
+                                    PhoneView()
+                                } label: {
+                                    BigIconButton(
+                                        systemName: "phone.fill",
+                                        title: "電話"
+                                    )
+                                }
                             }
 
-                            NavigationLink {
-                                CalendarView()
-                            } label: {
-                                BigIconButton(
-                                    systemName: "calendar",
-                                    title: "予定"
-                                )
+                            if showCalendar {
+                                NavigationLink {
+                                    CalendarView()
+                                } label: {
+                                    BigIconButton(
+                                        systemName: "calendar",
+                                        title: "予定"
+                                    )
+                                }
                             }
 
-                            NavigationLink {
-                                MapView()
-                            } label: {
-                                BigIconButton(
-                                    systemName: "map.fill",
-                                    title: "地図"
-                                )
+                            // 2段目：左 カメラ / 右 写真
+                            if showCamera {
+                                NavigationLink {
+                                    CameraView()
+                                } label: {
+                                    BigIconButton(
+                                        systemName: "camera.fill",
+                                        title: "カメラ"
+                                    )
+                                }
                             }
 
+                            if showPhotos {
+                                NavigationLink {
+                                    PhotoLibraryView()
+                                } label: {
+                                    BigIconButton(
+                                        systemName: "photo.fill.on.rectangle.fill",
+                                        title: "写真"
+                                    )
+                                }
+                            }
+
+                            // 3段目：左 地図 / 右 設定
+                            if showMap {
+                                NavigationLink {
+                                    MapView()
+                                } label: {
+                                    BigIconButton(
+                                        systemName: "map.fill",
+                                        title: "地図"
+                                    )
+                                }
+                            }
+
+                            // 設定は常に表示
                             NavigationLink {
                                 SettingsGateView()
                             } label: {
@@ -78,7 +118,7 @@ struct ContentView: View {
                         }
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 24)   // 左右の赤い余白をそろえる
+                    .padding(.horizontal, 24)
 
                     Spacer()
                 }
