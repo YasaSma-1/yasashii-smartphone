@@ -4,8 +4,8 @@ struct HomeAppsSettingsView: View {
     @AppStorage("yasasuma_showPhone") private var showPhone = true
     @AppStorage("yasasuma_showCalendar") private var showCalendar = true
     @AppStorage("yasasuma_showMap") private var showMap = true
-    @AppStorage("yasasuma_showCamera") private var showCamera = false
-    @AppStorage("yasasuma_showPhotos") private var showPhotos = false
+    @AppStorage("yasasuma_showCamera") private var showCamera = true
+    @AppStorage("yasasuma_showPhotos") private var showPhotos = true
 
     var body: some View {
         Form {
