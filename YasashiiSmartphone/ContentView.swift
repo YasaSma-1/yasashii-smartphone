@@ -124,11 +124,16 @@ struct ContentView: View {
                 }
             }
         }
+        // アプリ（ホーム画面）が表示されたタイミングで起動回数をインクリメント
+        .onAppear {
+            ReviewRequestManager.shared.notifyAppLaunched()
+        }
         // 🔁 タイマーから値が流れてきたら now を更新
         .onReceive(timer) { input in
             now = input
         }
     }
+
 
     // 「13:05」みたいな時刻文字列
     private var timeString: String {

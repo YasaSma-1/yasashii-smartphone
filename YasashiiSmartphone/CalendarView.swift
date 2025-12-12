@@ -219,6 +219,9 @@ struct CalendarView: View {
         // 課金チェックは「予定を追加」ボタン側で済ませる想定なので、
         // ここでは単純に保存のみ行う
         eventsStore.events.append(newEvent)
+        if eventsStore.events.count >= 3 {
+                ReviewRequestManager.shared.maybeRequestReview(trigger: .addedEvents)
+            }
     }
 
     // MARK: - 表示用文字列

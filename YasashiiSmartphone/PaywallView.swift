@@ -118,28 +118,36 @@ struct PaywallView: View {
         }
     }
 
-    private func handlePurchase() async {
+    @MainActor
+    func handlePurchase() async {
         guard !isPurchasing, !purchaseStore.isProUnlocked else { return }
 
-        await MainActor.run {
-            isPurchasing = true
-            purchaseErrorMessage = nil
-        }
+        isPurchasing = true
+        purchaseErrorMessage = nil
 
-        // TODO: StoreKit 2 で selectedPlan に応じた課金処理を実装
-        // switch selectedPlan {
-        // case .monthly:
-        //     try await purchaseStore.purchaseMonthly()
-        // case .yearly:
-        //     try await purchaseStore.purchaseYearly()
-        // }
-
-        // ダミー実装
-        await MainActor.run {
-            purchaseStore.isProUnlocked = true
+        do {
+            // StoreKit 2 の購入処理（事前に PurchaseStore 側を実装しておく想定）
+            try await purchaseStore.purchase(plan: selectedPlan)
             isPurchasing = false
+
+            if purchaseStore.isProUnlocked {
+                // Pro 購入完了 → レビュー依頼候補
+                ReviewRequestManager.shared.maybeRequestReview(trigger: .purchasedPro)
+                dismiss()
+            }
+        } catch {
+            isPurchasing = false
+
+            if let localized = error as? LocalizedError,
+               let description = localized.errorDescription {
+                purchaseErrorMessage = description
+            } else {
+                purchaseErrorMessage = "購入に失敗しました。時間をおいて、もう一度お試しください。"
+            }
         }
     }
+
+
 }
 
 // MARK: - PaywallView 内部コンポーネント

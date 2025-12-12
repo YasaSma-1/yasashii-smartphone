@@ -38,20 +38,37 @@ struct DestinationSettingsView: View {
             }
             .listStyle(.insetGrouped)
             .navigationTitle("よく行く場所")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // 左：編集（リストの削除モード用）
+                ToolbarItem(placement: .topBarLeading) {
+                    EditButton()
+                }
+
+                // 右：＋ボタン（よく行く場所を追加）
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("追加") {
-                        handleAddTapped()        // ★ ここで制御
+                    Button {
+                        handleAddTapped()        // ★ ここで制御（Free/Pro 判定つき）
+                    } label: {
+                        Image(systemName: "plus")
                     }
                 }
             }
+
         }
+        // 追加フォーム
         // 追加フォーム
         .sheet(isPresented: $showingAddSheet) {
             EditDestinationView { newDest in
                 destinationStore.destinations.append(newDest)
+
+                // よく行く場所も複数件あればレビュー依頼候補
+                if destinationStore.destinations.count >= 3 {
+                    ReviewRequestManager.shared.maybeRequestReview(trigger: .addedDestinations)
+                }
             }
         }
+
         // ペイウォール
         .sheet(isPresented: $showingPaywall) {
             NavigationStack {

@@ -109,7 +109,7 @@ struct PurchaseSettingsView: View {
         }
     }
 
-    // MARK: - 課金後 UI（前回と同じ）
+    // MARK: - 課金後 UI
 
     private var subscribedContent: some View {
         VStack(spacing: 24) {
@@ -142,9 +142,10 @@ struct PurchaseSettingsView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "creditcard")
                         .imageScale(.medium)
-                    Text("年額 ￥3,900")
+                    Text(subscribedPlanDescription)
                         .font(.system(size: 15))
                 }
+
 
                 HStack(spacing: 8) {
                     Image(systemName: "calendar")
@@ -200,33 +201,66 @@ struct PurchaseSettingsView: View {
             return "年額プランでアップグレード"
         }
     }
-
-    private func handleStartWithSelectedPlan() async {
-        guard !isPurchasing else { return }
-
-        await MainActor.run {
-            isPurchasing = true
-            purchaseErrorMessage = nil
+    /// 契約中プランの表示文言
+        private var subscribedPlanDescription: String {
+            switch purchaseStore.activePlan {
+            case .monthly:
+                return "月額 ￥480"
+            case .yearly:
+                return "年額 ￥3,900"
+            case nil:
+                return "プレミアムプラン"
+            }
         }
 
-        // TODO: StoreKit 2 で selectedPlan に応じた課金処理を実装
-        // switch selectedPlan {
-        // case .monthly:
-        //     try await purchaseStore.purchaseMonthly()
-        // case .yearly:
-        //     try await purchaseStore.purchaseYearly()
-        // }
 
-        // ダミー実装
-        await MainActor.run {
-            purchaseStore.isProUnlocked = true
+    @MainActor
+    func handleStartWithSelectedPlan() async {
+        guard !isPurchasing else { return }
+
+        isPurchasing = true
+        purchaseErrorMessage = nil
+
+        do {
+            try await purchaseStore.purchase(plan: selectedPlan)
             isPurchasing = false
+
+            // ✅ Proが有効になったら、レビュー依頼候補
+            if purchaseStore.isProUnlocked {
+                ReviewRequestManager.shared.maybeRequestReview(trigger: .purchasedPro)
+            }
+        } catch {
+            isPurchasing = false
+
+            if let localized = error as? LocalizedError,
+               let description = localized.errorDescription {
+                purchaseErrorMessage = description
+            } else {
+                purchaseErrorMessage = "購入に失敗しました。時間をおいて、もう一度お試しください。"
+            }
         }
     }
 
+    @MainActor
     private func restorePurchases() async {
-        // TODO: StoreKit 2 の復元処理
-        // 例）try await purchaseStore.restore()
+        guard !isPurchasing else { return }
+
+        isPurchasing = true
+        purchaseErrorMessage = nil
+
+        do {
+            try await purchaseStore.restorePurchases()
+            isPurchasing = false
+        } catch {
+            isPurchasing = false
+
+            if let localized = error as? LocalizedError,
+               let description = localized.errorDescription {
+                purchaseErrorMessage = description
+            } else {
+                purchaseErrorMessage = "購入情報の復元に失敗しました。時間をおいて、もう一度お試しください。"
+            }
+        }
     }
 
     private func openSubscriptionSettings() {

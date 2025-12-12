@@ -81,15 +81,23 @@ struct FavoriteContactsSettingsView: View {
         .navigationTitle("よくかける相手")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 右上の＋ボタン → 新規追加
+            // 左：編集（削除 / 並び替え用）
+            ToolbarItem(placement: .topBarLeading) {
+                EditButton()
+            }
+
+            // 右：＋ボタン（よくかける相手を追加）
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    handleAddButtonTapped()
+                    handleAddButtonTapped()   // ← 関数名に揃える
                 } label: {
                     Image(systemName: "plus")
                 }
             }
+
         }
+
+        // 追加・編集・ペイウォールのシート
         // 追加・編集・ペイウォールのシート
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -98,13 +106,20 @@ struct FavoriteContactsSettingsView: View {
                     contact: editingContact,
                     onSave: { name, phone in
                         if let editing = editingContact {
+                            // 既存の連絡先を編集
                             favoriteContactsStore.update(
                                 contact: editing,
                                 name: name,
                                 phone: phone
                             )
                         } else {
+                            // 新規追加
                             favoriteContactsStore.add(name: name, phone: phone)
+
+                            // ★ よくかける相手が複数件になったらレビュー依頼候補
+                            if favoriteContactsStore.favorites.count >= 3 {
+                                ReviewRequestManager.shared.maybeRequestReview(trigger: .addedFavoriteContacts)
+                            }
                         }
                     },
                     onDelete: editingContact.map { contact in
@@ -119,6 +134,7 @@ struct FavoriteContactsSettingsView: View {
                     .environmentObject(purchaseStore)
             }
         }
+
     }
 
     // MARK: - 新規追加ボタンタップ時の制御
