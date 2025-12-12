@@ -1,21 +1,33 @@
 import SwiftUI
 import MapKit
 
-// MARK: - 設定 > よく行く場所 一覧
+// iOS 26 以降の警告を避けつつ座標を取る
+private extension MKMapItem {
+    var yasasumaCoordinate: CLLocationCoordinate2D {
+        if #available(iOS 26.0, *) {
+            return self.location.coordinate   // ✅ location は Optional じゃない
+        } else {
+            return self.placemark.coordinate  // ⚠️ iOS26でdeprecated警告は出るがOK
+        }
+    }
+}
 
 struct DestinationSettingsView: View {
     @EnvironmentObject var destinationStore: DestinationStore
-    @EnvironmentObject var purchaseStore: PurchaseStore      // ★ 課金状態
+    @EnvironmentObject var purchaseStore: PurchaseStore
 
+    @Environment(\.editMode) private var editMode
     @State private var showingAddSheet = false
-    @State private var showingPaywall = false                // ★ ペイウォール表示
+    @State private var showingPaywall = false
+
+    private var isEditing: Bool {
+        editMode?.wrappedValue.isEditing ?? false
+    }
 
     var body: some View {
         NavigationStack {
             List {
-                Section(
-                    footer: footerText
-                ) {
+                Section(footer: footerText) {
                     if destinationStore.destinations.isEmpty {
                         Text("まだ登録されていません。")
                             .foregroundColor(.secondary)
@@ -40,36 +52,31 @@ struct DestinationSettingsView: View {
             .navigationTitle("よく行く場所")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // 左：編集（リストの削除モード用）
-                ToolbarItem(placement: .topBarLeading) {
-                    EditButton()
-                }
+                // ✅ 右側： [編集] [＋]（＋の左に編集）
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(isEditing ? "完了" : "編集") {
+                        withAnimation {
+                            editMode?.wrappedValue = isEditing ? .inactive : .active
+                        }
+                    }
 
-                // 右：＋ボタン（よく行く場所を追加）
-                ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        handleAddTapped()        // ★ ここで制御（Free/Pro 判定つき）
+                        handleAddButtonTapped()
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
-
         }
-        // 追加フォーム
-        // 追加フォーム
         .sheet(isPresented: $showingAddSheet) {
             EditDestinationView { newDest in
                 destinationStore.destinations.append(newDest)
 
-                // よく行く場所も複数件あればレビュー依頼候補
                 if destinationStore.destinations.count >= 3 {
                     ReviewRequestManager.shared.maybeRequestReview(trigger: .addedDestinations)
                 }
             }
         }
-
-        // ペイウォール
         .sheet(isPresented: $showingPaywall) {
             NavigationStack {
                 PaywallView()
@@ -88,24 +95,24 @@ struct DestinationSettingsView: View {
         destinationStore.destinations.remove(atOffsets: offsets)
     }
 
-    // MARK: - 追加ボタン押下時の制御（無料版は2件まで）
-
-    private func handleAddTapped() {
+    private func handleAddButtonTapped() {
         if purchaseStore.isProUnlocked {
-            // 有料版なら制限なし
             showingAddSheet = true
             return
         }
 
-        // 無料版：2件までは追加OK
         if destinationStore.destinations.count < 2 {
             showingAddSheet = true
         } else {
-            // 3件目以降はペイウォールへ
             showingPaywall = true
         }
     }
 }
+
+// 以降（EditDestinationView / MapSearchPickerView 等）は、あなたの既存実装のままでOK。
+// ただし item.placemark.coordinate を使っている箇所だけ item.yasasumaCoordinate に置換してください。
+// 例： coordinate = item.yasasumaCoordinate
+
 
 // MARK: - 場所追加フォーム（場所 → 名前 → メモ）
 

@@ -5,126 +5,102 @@ struct SettingsView: View {
         ZStack {
             Color(.systemGray6)
                 .ignoresSafeArea()
-            
+
             ScrollView {
-                VStack(spacing: 16) {
-                    
-                    // 📞 電話の設定
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("電話の設定")
-                            .font(.system(size: 20, weight: .bold))
-                            .padding(.horizontal, 24)
+                VStack(spacing: 18) {
 
-                        VStack(spacing: 12) {
-                            NavigationLink {
-                                FavoriteContactsSettingsView()
-                            } label: {
-                                SettingsMenuCard(
-                                    iconName: "person.2.fill",
-                                    iconColor: Color.yasasumaGreen,
-                                    title: "よくかける相手（電話帳）",
-                                    subtitle: "「電話」画面に出す相手を確認・変更できます。"
-                                )
-                            }
+                    settingsSection(title: "電話") {
+                        NavigationLink {
+                            FavoriteContactsSettingsView()
+                        } label: {
+                            SettingsMenuCard(
+                                iconName: "person.2.fill",
+                                iconColor: .yasasumaGreen,
+                                title: "よくかける相手（電話帳）",
+                                subtitle: "電話に出す相手を編集します。"
+                            )
                         }
-                        .padding(.horizontal, 24)
                     }
-                    .padding(.top, 20)
 
-                    // 🗺 地図の設定
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("地図の設定")
-                            .font(.system(size: 20, weight: .bold))
-                            .padding(.horizontal, 24)
-
-                        VStack(spacing: 12) {
-                            NavigationLink {
-                                DestinationSettingsView()
-                            } label: {
-                                SettingsMenuCard(
-                                    iconName: "mappin.and.ellipse",
-                                    iconColor: Color.yasasumaGreen,
-                                    title: "よく行く場所",
-                                    subtitle: "「地図」画面で使う行き先を設定できます。"
-                                )
-                            }
+                    settingsSection(title: "地図") {
+                        NavigationLink {
+                            DestinationSettingsView()
+                        } label: {
+                            SettingsMenuCard(
+                                iconName: "mappin.and.ellipse",
+                                iconColor: .yasasumaGreen,
+                                title: "よく行く場所",
+                                subtitle: "地図で使う行き先を編集します。"
+                            )
                         }
-                        .padding(.horizontal, 24)
                     }
-                    .padding(.top, 20)
 
-                    // 🏠 ホーム画面に表示するアプリ
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("ホーム画面")
-                            .font(.system(size: 20, weight: .bold))
-                            .padding(.horizontal, 24)
-
-                        VStack(spacing: 12) {
-                            NavigationLink {
-                                HomeAppsSettingsView()
-                            } label: {
-                                SettingsMenuCard(
-                                    iconName: "square.grid.2x2",
-                                    iconColor: Color.yasasumaGreen,
-                                    title: "ホームに表示するアプリ",
-                                    subtitle: "ホーム画面に出すアプリをえらべます。"
-                                )
-                            }
+                    settingsSection(title: "ホーム") {
+                        NavigationLink {
+                            HomeAppsSettingsView()
+                        } label: {
+                            SettingsMenuCard(
+                                iconName: "square.grid.2x2",
+                                iconColor: .yasasumaGreen,
+                                title: "ホームに表示するアプリ",
+                                subtitle: "ホームに出すアプリを選べます。"
+                            )
                         }
-                        .padding(.horizontal, 24)
                     }
-                    .padding(.top, 20)
 
-                    // 🔒 アプリの安全設定
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("アプリの安全設定")
-                            .font(.system(size: 20, weight: .bold))
-                            .padding(.horizontal, 24)
-
-                        VStack(spacing: 12) {
-                            NavigationLink {
-                                PasscodeSettingsView()
-                            } label: {
-                                SettingsMenuCard(
-                                    iconName: "lock.fill",
-                                    iconColor: Color.yasasumaGreen,
-                                    title: "設定画面に入るパスコード（4桁）",
-                                    subtitle: "設定画面をひらく前に4桁の数字を入力させるかどうかを設定できます。"
-                                )
-                            }
+                    settingsSection(title: "安全") {
+                        NavigationLink {
+                            PasscodeSettingsView()
+                        } label: {
+                            SettingsMenuCard(
+                                iconName: "lock.fill",
+                                iconColor: .yasasumaGreen,
+                                title: "設定画面のパスコード（4桁）",
+                                subtitle: "設定を開く前に4桁の入力を求めます。"
+                            )
                         }
-                        .padding(.horizontal, 24)
                     }
-                    .padding(.top, 20)
 
-                    // 💳 アプリのご利用と課金（いちばん下）
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("アプリのご利用と課金")
-                            .font(.system(size: 20, weight: .bold))
-                            .padding(.horizontal, 24)
-
-                        VStack(spacing: 12) {
-                            NavigationLink {
-                                PurchaseSettingsView()
-                            } label: {
-                                SettingsMenuCard(
-                                    iconName: "creditcard.fill",
-                                    iconColor: Color.yasasumaGreen,
-                                    title: "有料プラン（やさスマ プレミアム）",
-                                    subtitle: "無料版の制限と、ご利用中のプランを確認できます。"
-                                )
-                            }
+                    settingsSection(title: "課金") {
+                        NavigationLink {
+                            PurchaseSettingsView()
+                        } label: {
+                            SettingsMenuCard(
+                                iconName: "creditcard.fill",
+                                iconColor: .yasasumaGreen,
+                                title: "有料プラン（やさスマ プレミアム）",
+                                subtitle: "プランの確認・アップグレード。"
+                            )
                         }
-                        .padding(.horizontal, 24)
                     }
-                    .padding(.top, 20)
 
-                    Spacer(minLength: 24)
+                    Spacer(minLength: 28)
                 }
+                .padding(.top, 18)
             }
         }
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    // MARK: - Section Wrapper
+
+    @ViewBuilder
+    private func settingsSection<Content: View>(
+        title: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 18, weight: .bold))
+                .padding(.horizontal, 24)
+
+            VStack(spacing: 12) {
+                content()
+            }
+            .padding(.horizontal, 24)
+        }
+        .padding(.top, 10)
     }
 }
 
@@ -138,7 +114,6 @@ struct SettingsMenuCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 16) {
-            // アイコン
             ZStack {
                 Circle()
                     .fill(iconColor)
@@ -151,14 +126,13 @@ struct SettingsMenuCard: View {
                     .foregroundColor(.white)
             }
 
-            // タイトル＋サブタイトル
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.system(size: 18, weight: .semibold, design: .rounded))
                     .foregroundColor(.primary)
 
                 Text(subtitle)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.leading)
             }

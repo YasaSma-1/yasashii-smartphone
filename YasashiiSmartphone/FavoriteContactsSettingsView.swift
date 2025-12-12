@@ -1,9 +1,7 @@
 import SwiftUI
 
-// 無料版で登録できる「よくかける相手」の上限
 private let freeFavoriteLimit = 2
 
-// シートの種類（編集 or ペイウォール）
 private enum FavoriteContactsSheet: Identifiable {
     case edit(FavoriteContact?)  // nil のときは新規
     case paywall
@@ -11,11 +9,8 @@ private enum FavoriteContactsSheet: Identifiable {
     var id: String {
         switch self {
         case .edit(let contact):
-            if let c = contact {
-                return "edit-\(c.id.uuidString)"
-            } else {
-                return "edit-new"
-            }
+            if let c = contact { return "edit-\(c.id.uuidString)" }
+            return "edit-new"
         case .paywall:
             return "paywall"
         }
@@ -26,31 +21,33 @@ struct FavoriteContactsSettingsView: View {
     @EnvironmentObject var favoriteContactsStore: FavoriteContactsStore
     @EnvironmentObject var purchaseStore: PurchaseStore
 
-    // どのシートを出すか
+    @Environment(\.editMode) private var editMode
     @State private var activeSheet: FavoriteContactsSheet?
+
+    private var isEditing: Bool {
+        editMode?.wrappedValue.isEditing ?? false
+    }
 
     var body: some View {
         ZStack {
-            Color(.systemGray6)
-                .ignoresSafeArea()
+            Color(.systemGray6).ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 16) {
-                    Text("よくかける相手（電話帳）")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
-                        .padding(.top, 24)
 
+                    // タイトルの重複感を減らす（navigationTitleは残す）
                     VStack(alignment: .leading, spacing: 8) {
                         Text("「電話」の画面に出す相手をここで編集します。")
                             .font(.system(size: 15))
                             .foregroundColor(.secondary)
 
-                        Text("無料版では、よくかける相手は 2件 まで登録できます。")
+                        Text("無料版では 2件 まで登録できます。")
                             .font(.system(size: 14))
                             .foregroundColor(.secondary)
                     }
                     .multilineTextAlignment(.leading)
                     .padding(.horizontal, 24)
+                    .padding(.top, 16)
 
                     VStack(spacing: 12) {
                         if favoriteContactsStore.favorites.isEmpty {
@@ -63,7 +60,6 @@ struct FavoriteContactsSettingsView: View {
                         } else {
                             ForEach(favoriteContactsStore.favorites) { contact in
                                 Button {
-                                    // 既存の相手は常に編集OK（制限なし）
                                     activeSheet = .edit(contact)
                                 } label: {
                                     FavoriteContactSettingsRow(contact: contact)
@@ -81,24 +77,21 @@ struct FavoriteContactsSettingsView: View {
         .navigationTitle("よくかける相手")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            // 左：編集（削除 / 並び替え用）
-            ToolbarItem(placement: .topBarLeading) {
-                EditButton()
-            }
+            // ✅ 右側： [編集] [＋] で「＋の左に編集」
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button(isEditing ? "完了" : "編集") {
+                    withAnimation {
+                        editMode?.wrappedValue = isEditing ? .inactive : .active
+                    }
+                }
 
-            // 右：＋ボタン（よくかける相手を追加）
-            ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    handleAddButtonTapped()   // ← 関数名に揃える
+                    handleAddButtonTapped()
                 } label: {
                     Image(systemName: "plus")
                 }
             }
-
         }
-
-        // 追加・編集・ペイウォールのシート
-        // 追加・編集・ペイウォールのシート
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
             case .edit(let editingContact):
@@ -106,26 +99,17 @@ struct FavoriteContactsSettingsView: View {
                     contact: editingContact,
                     onSave: { name, phone in
                         if let editing = editingContact {
-                            // 既存の連絡先を編集
-                            favoriteContactsStore.update(
-                                contact: editing,
-                                name: name,
-                                phone: phone
-                            )
+                            favoriteContactsStore.update(contact: editing, name: name, phone: phone)
                         } else {
-                            // 新規追加
                             favoriteContactsStore.add(name: name, phone: phone)
 
-                            // ★ よくかける相手が複数件になったらレビュー依頼候補
                             if favoriteContactsStore.favorites.count >= 3 {
                                 ReviewRequestManager.shared.maybeRequestReview(trigger: .addedFavoriteContacts)
                             }
                         }
                     },
                     onDelete: editingContact.map { contact in
-                        {
-                            favoriteContactsStore.delete(contact: contact)
-                        }
+                        { favoriteContactsStore.delete(contact: contact) }
                     }
                 )
 
@@ -134,27 +118,22 @@ struct FavoriteContactsSettingsView: View {
                     .environmentObject(purchaseStore)
             }
         }
-
     }
 
-    // MARK: - 新規追加ボタンタップ時の制御
-
     private func handleAddButtonTapped() {
-        // 有料版なら制限なし
         if purchaseStore.isProUnlocked {
             activeSheet = .edit(nil)
             return
         }
 
-        // 無料版で 2件以上登録済み → ペイウォール
         if favoriteContactsStore.favorites.count >= freeFavoriteLimit {
             activeSheet = .paywall
         } else {
-            // 2件未満なら新規追加OK
             activeSheet = .edit(nil)
         }
     }
 }
+
 
 /// 設定用の電話帳1行カード
 struct FavoriteContactSettingsRow: View {
