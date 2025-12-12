@@ -68,7 +68,7 @@ struct SettingsView: View {
                             SettingsMenuCard(
                                 iconName: "creditcard.fill",
                                 iconColor: .yasasumaGreen,
-                                title: "有料プラン（やさスマ プレミアム）",
+                                title: "有料プラン（やさスマプレミアム）",
                                 subtitle: "プランの確認・アップグレード。"
                             )
                         }

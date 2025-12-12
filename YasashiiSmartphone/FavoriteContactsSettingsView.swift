@@ -3,14 +3,13 @@ import SwiftUI
 private let freeFavoriteLimit = 2
 
 private enum FavoriteContactsSheet: Identifiable {
-    case edit(FavoriteContact?)  // nil のときは新規
+    case edit(FavoriteContact?)  // nil = 新規
     case paywall
 
     var id: String {
         switch self {
         case .edit(let contact):
-            if let c = contact { return "edit-\(c.id.uuidString)" }
-            return "edit-new"
+            return contact.map { "edit-\($0.id.uuidString)" } ?? "edit-new"
         case .paywall:
             return "paywall"
         }
@@ -21,76 +20,114 @@ struct FavoriteContactsSettingsView: View {
     @EnvironmentObject var favoriteContactsStore: FavoriteContactsStore
     @EnvironmentObject var purchaseStore: PurchaseStore
 
-    @Environment(\.editMode) private var editMode
+    @State private var editMode: EditMode = .inactive
     @State private var activeSheet: FavoriteContactsSheet?
 
-    private var isEditing: Bool {
-        editMode?.wrappedValue.isEditing ?? false
-    }
+    // ✅ 複数選択
+    @State private var selection: Set<UUID> = []
+    @State private var showDeleteConfirm = false
+
+    private var isEditing: Bool { editMode == .active }
 
     var body: some View {
-        ZStack {
-            Color(.systemGray6).ignoresSafeArea()
+        List(selection: $selection) {
+            Section {
+                if favoriteContactsStore.favorites.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "person.2.fill")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundColor(.secondary)
 
-            ScrollView {
-                VStack(spacing: 16) {
+                        Text("まだ登録されていません")
+                            .font(.system(size: 16, weight: .semibold))
 
-                    // タイトルの重複感を減らす（navigationTitleは残す）
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("「電話」の画面に出す相手をここで編集します。")
+                        Text("右上の「＋」から追加できます。")
                             .font(.system(size: 15))
                             .foregroundColor(.secondary)
-
-                        Text("無料版では 2件 まで登録できます。")
-                            .font(.system(size: 14))
-                            .foregroundColor(.secondary)
                     }
-                    .multilineTextAlignment(.leading)
-                    .padding(.horizontal, 24)
-                    .padding(.top, 16)
-
-                    VStack(spacing: 12) {
-                        if favoriteContactsStore.favorites.isEmpty {
-                            Text("まだ登録されていません。\n右上の＋ボタンから追加できます。")
-                                .font(.system(size: 15))
-                                .foregroundColor(.secondary)
-                                .multilineTextAlignment(.center)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(favoriteContactsStore.favorites) { contact in
+                        if isEditing {
+                            FavoriteContactSettingsRow(contact: contact, showChevron: false)
+                                .tag(contact.id)
                         } else {
-                            ForEach(favoriteContactsStore.favorites) { contact in
-                                Button {
-                                    activeSheet = .edit(contact)
-                                } label: {
-                                    FavoriteContactSettingsRow(contact: contact)
-                                }
-                                .buttonStyle(.plain)
+                            Button {
+                                activeSheet = .edit(contact)
+                            } label: {
+                                FavoriteContactSettingsRow(contact: contact, showChevron: true)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 24)
+                }
+            } header: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("「電話」画面に出す相手を設定します。")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
 
-                    Spacer(minLength: 24)
+                    Text("無料版では 2件 まで登録できます。")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                }
+                .textCase(nil)
+                .padding(.top, 6)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color(.systemGray6))
+        .navigationTitle("よくかける相手")
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.editMode, $editMode)
+        .onChange(of: editMode) { _, newValue in
+            if newValue == .inactive { selection.removeAll() }
+        }
+        .toolbar {
+            // 右上：編集（＋の左）
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(isEditing ? "完了" : "編集") {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+                        editMode = isEditing ? .inactive : .active
+                    }
+                }
+                .font(.system(size: 16, weight: .semibold))
+            }
+
+            // 右上：＋（右端）※右余白確保
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    handleAddTapped()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .padding(.trailing, 8)
+                }
+                .disabled(isEditing)
+            }
+
+            // ✅ 編集モードのときだけ「削除」を下に出す
+            if isEditing {
+                ToolbarItem(placement: .bottomBar) {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
+                    .disabled(selection.isEmpty)
                 }
             }
         }
-        .navigationTitle("よくかける相手")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            // ✅ 右側： [編集] [＋] で「＋の左に編集」
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button(isEditing ? "完了" : "編集") {
-                    withAnimation {
-                        editMode?.wrappedValue = isEditing ? .inactive : .active
-                    }
-                }
-
-                Button {
-                    handleAddButtonTapped()
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
+        .confirmationDialog(
+            "選択した \(selection.count) 件を削除しますか？",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) { deleteSelected() }
+            Button("キャンセル", role: .cancel) { }
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -108,8 +145,8 @@ struct FavoriteContactsSettingsView: View {
                             }
                         }
                     },
-                    onDelete: editingContact.map { contact in
-                        { favoriteContactsStore.delete(contact: contact) }
+                    onDelete: editingContact.map { target in
+                        { favoriteContactsStore.delete(contact: target) }
                     }
                 )
 
@@ -120,7 +157,7 @@ struct FavoriteContactsSettingsView: View {
         }
     }
 
-    private func handleAddButtonTapped() {
+    private func handleAddTapped() {
         if purchaseStore.isProUnlocked {
             activeSheet = .edit(nil)
             return
@@ -132,76 +169,83 @@ struct FavoriteContactsSettingsView: View {
             activeSheet = .edit(nil)
         }
     }
-}
 
-
-/// 設定用の電話帳1行カード
-struct FavoriteContactSettingsRow: View {
-    let contact: FavoriteContact
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "person.fill")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundColor(.yasasumaGreen)
-                .frame(width: 32)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(contact.name)
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
-                Text(contact.phone)
-                    .font(.system(size: 15, weight: .regular, design: .monospaced))
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 18)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color.white,
-                            Color(.systemGray5)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .shadow(color: .white.opacity(0.8),
-                        radius: 3,
-                        x: -2,
-                        y: -2)
-                .shadow(color: .black.opacity(0.2),
-                        radius: 4,
-                        x: 2,
-                        y: 3)
-        )
+    private func deleteSelected() {
+        let ids = selection
+        let targets = favoriteContactsStore.favorites.filter { ids.contains($0.id) }
+        targets.forEach { favoriteContactsStore.delete(contact: $0) }
+        selection.removeAll()
     }
 }
 
-// MARK: - 追加・編集シート
+// MARK: - Row（Destination とデザイン統一）
 
-struct FavoriteContactEditSheet: View {
-    let contact: FavoriteContact?          // nil のときは新規
-    let onSave: (String, String) -> Void   // (name, phone)
-    let onDelete: (() -> Void)?           // 既存のときだけ有効
+private struct FavoriteContactSettingsRow: View {
+    let contact: FavoriteContact
+    let showChevron: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.yasasumaGreen)
+                    .frame(width: 34, height: 34)
+                Image(systemName: "person.fill")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(contact.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.primary)
+
+                Text(contact.phone)
+                    .font(.system(size: 15))
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+            }
+
+            Spacer()
+
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(.systemGray3))
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+// MARK: - Edit Sheet（削除あり）
+
+private struct FavoriteContactEditSheet: View {
+    let contact: FavoriteContact?
+    let onSave: (String, String) -> Void
+    let onDelete: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss
 
-    @State private var name: String = ""
-    @State private var phone: String = ""
+    @State private var name: String
+    @State private var phone: String
+    @State private var showDeleteConfirm = false
 
-    init(contact: FavoriteContact?,
-         onSave: @escaping (String, String) -> Void,
-         onDelete: (() -> Void)? = nil) {
+    init(
+        contact: FavoriteContact?,
+        onSave: @escaping (String, String) -> Void,
+        onDelete: (() -> Void)? = nil
+    ) {
         self.contact = contact
         self.onSave = onSave
         self.onDelete = onDelete
         _name = State(initialValue: contact?.name ?? "")
         _phone = State(initialValue: contact?.phone ?? "")
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        !phone.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     var body: some View {
@@ -216,13 +260,12 @@ struct FavoriteContactEditSheet: View {
                         .keyboardType(.numberPad)
                 }
 
-                if let onDelete {
+                if onDelete != nil {
                     Section {
                         Button(role: .destructive) {
-                            onDelete()
-                            dismiss()
+                            showDeleteConfirm = true
                         } label: {
-                            Text("この相手を削除する")
+                            Text("削除")
                         }
                     }
                 }
@@ -231,22 +274,29 @@ struct FavoriteContactEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") {
-                        dismiss()
-                    }
+                    Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
                         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
                         let trimmedPhone = phone.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !trimmedName.isEmpty, !trimmedPhone.isEmpty else {
-                            dismiss()
-                            return
-                        }
+                        guard !trimmedName.isEmpty, !trimmedPhone.isEmpty else { return }
                         onSave(trimmedName, trimmedPhone)
                         dismiss()
                     }
+                    .disabled(!canSave)
                 }
+            }
+            .confirmationDialog(
+                "この相手を削除しますか？",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    onDelete?()
+                    dismiss()
+                }
+                Button("キャンセル", role: .cancel) { }
             }
         }
     }

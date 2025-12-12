@@ -1,13 +1,19 @@
 import SwiftUI
 import MapKit
+import CoreLocation
 
-// iOS 26 以降の警告を避けつつ座標を取る
-private extension MKMapItem {
-    var yasasumaCoordinate: CLLocationCoordinate2D {
-        if #available(iOS 26.0, *) {
-            return self.location.coordinate   // ✅ location は Optional じゃない
-        } else {
-            return self.placemark.coordinate  // ⚠️ iOS26でdeprecated警告は出るがOK
+private let freeDestinationLimit = 2
+
+private enum DestinationSheet: Identifiable {
+    case edit(Destination?)   // nil = 新規
+    case paywall
+
+    var id: String {
+        switch self {
+        case .edit(let d):
+            return d.map { "edit-\($0.id.uuidString)" } ?? "edit-new"
+        case .paywall:
+            return "paywall"
         }
     }
 }
@@ -16,211 +22,386 @@ struct DestinationSettingsView: View {
     @EnvironmentObject var destinationStore: DestinationStore
     @EnvironmentObject var purchaseStore: PurchaseStore
 
-    @Environment(\.editMode) private var editMode
-    @State private var showingAddSheet = false
-    @State private var showingPaywall = false
+    @State private var editMode: EditMode = .inactive
+    @State private var activeSheet: DestinationSheet?
 
-    private var isEditing: Bool {
-        editMode?.wrappedValue.isEditing ?? false
-    }
+    // ✅ 複数選択
+    @State private var selection: Set<UUID> = []
+    @State private var showDeleteConfirm = false
+
+    private var isEditing: Bool { editMode == .active }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section(footer: footerText) {
-                    if destinationStore.destinations.isEmpty {
-                        Text("まだ登録されていません。")
+        List(selection: $selection) {
+            Section {
+                if destinationStore.destinations.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "mappin.and.ellipse")
+                            .font(.system(size: 28, weight: .semibold))
                             .foregroundColor(.secondary)
-                    } else {
-                        ForEach(destinationStore.destinations) { dest in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(dest.name)
-                                    .font(.body.bold())
-                                if !dest.detail.isEmpty {
-                                    Text(dest.detail)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                }
+
+                        Text("まだ登録されていません")
+                            .font(.system(size: 16, weight: .semibold))
+
+                        Text("右上の「＋」から追加できます。")
+                            .font(.system(size: 15))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                    .listRowBackground(Color.clear)
+                } else {
+                    ForEach(destinationStore.destinations) { destination in
+                        if isEditing {
+                            DestinationSettingsRow(destination: destination, showChevron: false)
+                                .tag(destination.id)
+                        } else {
+                            Button {
+                                activeSheet = .edit(destination)
+                            } label: {
+                                DestinationSettingsRow(destination: destination, showChevron: true)
                             }
-                            .padding(.vertical, 4)
+                            .buttonStyle(.plain)
                         }
-                        .onDelete(perform: deleteDestinations)
                     }
                 }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("よく行く場所")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // ✅ 右側： [編集] [＋]（＋の左に編集）
-                ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button(isEditing ? "完了" : "編集") {
-                        withAnimation {
-                            editMode?.wrappedValue = isEditing ? .inactive : .active
-                        }
-                    }
+            } header: {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("「地図」画面に出す場所を設定します。")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primary)
 
-                    Button {
-                        handleAddButtonTapped()
+                    Text("無料版では 2件 まで登録できます。")
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                }
+                .textCase(nil)
+                .padding(.top, 6)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .background(Color(.systemGray6))
+        .navigationTitle("よく行く場所")
+        .navigationBarTitleDisplayMode(.inline)
+        .environment(\.editMode, $editMode)
+        .onChange(of: editMode) { _, newValue in
+            if newValue == .inactive { selection.removeAll() }
+        }
+        .toolbar {
+            // 右上：編集（＋の左）
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(isEditing ? "完了" : "編集") {
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.9)) {
+                        editMode = isEditing ? .inactive : .active
+                    }
+                }
+                .font(.system(size: 16, weight: .semibold))
+            }
+
+            // 右上：＋（右端）※右余白確保
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    handleAddTapped()
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 18, weight: .bold))
+                        .padding(.trailing, 10)
+                }
+                .disabled(isEditing)
+            }
+
+            // ✅ 編集モードのみ：下ツールバーに削除
+            if isEditing {
+                ToolbarItem(placement: .bottomBar) {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
                     } label: {
-                        Image(systemName: "plus")
+                        Label("削除", systemImage: "trash")
                     }
+                    .disabled(selection.isEmpty)
                 }
             }
         }
-        .sheet(isPresented: $showingAddSheet) {
-            EditDestinationView { newDest in
-                destinationStore.destinations.append(newDest)
+        .confirmationDialog(
+            "選択した \(selection.count) 件を削除しますか？",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("削除", role: .destructive) { deleteSelected() }
+            Button("キャンセル", role: .cancel) { }
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .edit(let editing):
+                DestinationEditSheet(
+                    destination: editing,
+                    onSave: { name, detail, coordinate in
+                        if let editing {
+                            if let idx = destinationStore.destinations.firstIndex(where: { $0.id == editing.id }) {
+                                destinationStore.destinations[idx].name = name
+                                destinationStore.destinations[idx].detail = detail
+                                destinationStore.destinations[idx].coordinate = coordinate
+                            }
+                        } else {
+                            destinationStore.destinations.append(
+                                Destination(name: name, detail: detail, coordinate: coordinate)
+                            )
 
-                if destinationStore.destinations.count >= 3 {
-                    ReviewRequestManager.shared.maybeRequestReview(trigger: .addedDestinations)
-                }
-            }
-        }
-        .sheet(isPresented: $showingPaywall) {
-            NavigationStack {
+                            if destinationStore.destinations.count >= 3 {
+                                ReviewRequestManager.shared.maybeRequestReview(trigger: .addedDestinations)
+                            }
+                        }
+                    },
+                    onDelete: editing.map { target in
+                        {
+                            destinationStore.destinations.removeAll { $0.id == target.id }
+                        }
+                    }
+                )
+
+            case .paywall:
                 PaywallView()
                     .environmentObject(purchaseStore)
             }
         }
     }
 
-    private var footerText: some View {
-        Text("削除する場合は、行を左にスワイプしてください。")
-            .font(.footnote)
-            .foregroundColor(.secondary)
-    }
-
-    private func deleteDestinations(at offsets: IndexSet) {
-        destinationStore.destinations.remove(atOffsets: offsets)
-    }
-
-    private func handleAddButtonTapped() {
+    private func handleAddTapped() {
         if purchaseStore.isProUnlocked {
-            showingAddSheet = true
+            activeSheet = .edit(nil)
             return
         }
 
-        if destinationStore.destinations.count < 2 {
-            showingAddSheet = true
+        if destinationStore.destinations.count >= freeDestinationLimit {
+            activeSheet = .paywall
         } else {
-            showingPaywall = true
+            activeSheet = .edit(nil)
         }
+    }
+
+    private func deleteSelected() {
+        let ids = selection
+        destinationStore.destinations.removeAll { ids.contains($0.id) }
+        selection.removeAll()
     }
 }
 
-// 以降（EditDestinationView / MapSearchPickerView 等）は、あなたの既存実装のままでOK。
-// ただし item.placemark.coordinate を使っている箇所だけ item.yasasumaCoordinate に置換してください。
-// 例： coordinate = item.yasasumaCoordinate
+// MARK: - Row
 
+private struct DestinationSettingsRow: View {
+    let destination: Destination
+    let showChevron: Bool
 
-// MARK: - 場所追加フォーム（場所 → 名前 → メモ）
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.yasasumaGreen)
+                    .frame(width: 34, height: 34)
+                Image(systemName: "mappin")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+            }
 
-struct EditDestinationView: View {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(destination.name)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.primary)
+
+                if !destination.detail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(destination.detail)
+                        .font(.system(size: 15))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            if showChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(Color(.systemGray3))
+            }
+        }
+        .padding(.vertical, 6)
+    }
+}
+
+// MARK: - Edit Sheet（削除あり / 地図選択の名称も表示）
+
+private struct DestinationEditSheet: View {
+    let destination: Destination?
+    let onSave: (String, String, CLLocationCoordinate2D) -> Void
+    let onDelete: (() -> Void)?
+
     @Environment(\.dismiss) private var dismiss
 
-    // 選ばれた場所
-    @State private var coordinate: CLLocationCoordinate2D? = nil
-    @State private var locationLabel: String = ""   // 名称のみ
+    @State private var name: String
+    @State private var detail: String
+    @State private var coordinate: CLLocationCoordinate2D?
 
-    // 基本情報
-    @State private var name: String = ""
-    @State private var detail: String = ""
+    @State private var isPickerPresented = false
+    @State private var pickedPlaceName: String? = nil
+    @State private var showDeleteConfirm = false
 
-    let onSave: (Destination) -> Void
+    init(
+        destination: Destination?,
+        onSave: @escaping (String, String, CLLocationCoordinate2D) -> Void,
+        onDelete: (() -> Void)? = nil
+    ) {
+        self.destination = destination
+        self.onSave = onSave
+        self.onDelete = onDelete
+
+        _name = State(initialValue: destination?.name ?? "")
+        _detail = State(initialValue: destination?.detail ?? "")
+        _coordinate = State(initialValue: destination?.coordinate)
+    }
+
+    private var canSave: Bool {
+        !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && coordinate != nil
+    }
 
     var body: some View {
         NavigationStack {
             Form {
-                // ① 場所
-                Section("場所") {
-                    if coordinate != nil {
-                        Text(locationLabel.isEmpty ? "選択した場所" : locationLabel)
-                            .font(.subheadline)
-                    } else {
-                        Text("下の「場所を選択」から、よく行く場所を選んでください。")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                    }
-
-                    NavigationLink {
+                Section(header: Text("場所")) {
+                    NavigationLink(isActive: $isPickerPresented) {
                         MapSearchPickerView(initialCoordinate: coordinate) { item in
-                            // 場所確定：座標と名称のみ保存
-                            coordinate = item.placemark.coordinate
-                            locationLabel = item.name ?? ""
+                            let coord = item.yasasumaCoordinate
+                            coordinate = coord
 
-                            // 場所の名前が空なら自動入力
-                            let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                            if trimmed.isEmpty, let itemName = item.name {
-                                name = itemName
+                            // まずは即時に name（見た目用）
+                            pickedPlaceName = item.name ?? "選択した場所"
+
+                            // 住所っぽいのは逆ジオで上書き（丸の内1丁目9みたいなやつ）
+                            resolvePickedPlaceName(from: coord)
+
+                            if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                name = item.name ?? "選択した場所"
                             }
                         }
                     } label: {
-                        HStack {
-                            Image(systemName: "map")
-                            Text("場所を選択")
+                        // ✅ 右「選択済み/未選択」をセルの縦中央へ
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("地図から場所を選ぶ")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(.primary)
+
+                                if let pickedPlaceName, !pickedPlaceName.isEmpty {
+                                    Text(pickedPlaceName)
+                                        .font(.system(size: 17, weight: .semibold)) // ✅ secondary 17 semibold
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                } else if coordinate != nil {
+                                    Text("（場所は選択済み）")
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+
+                            Spacer(minLength: 12)
+
+                            VStack {
+                                Spacer(minLength: 0)
+                                Text(coordinate == nil ? "未選択" : "選択済み")
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundColor(.secondary)
+                                Spacer(minLength: 0)
+                            }
                         }
-                        .foregroundColor(Color.yasasumaGreen)   // アクセントカラー
+                        .padding(.vertical, 4)
                     }
                 }
 
-                // ② 場所の名前
-                Section("場所の名前") {
-                    TextField("例：病院、スーパー、駅など", text: $name)
+                Section(header: Text("表示名")) {
+                    TextField("例：病院 / スーパー / 駅", text: $name)
                 }
 
-                // ③ メモ
-                Section("メモ") {
-                    TextField("例：かかりつけの病院、いつも行くスーパー など", text: $detail)
+                Section(header: Text("メモ")) {
+                    TextField("例：かかりつけの病院", text: $detail)
+                }
+
+                if onDelete != nil {
+                    Section {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Text("削除")
+                        }
+                    }
                 }
             }
-            .navigationTitle("よく行く場所を追加")
+            .navigationTitle(destination == nil ? "場所を追加" : "場所を編集")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                // 既存編集で coordinate はあるが pickedPlaceName がない時に埋める
+                if pickedPlaceName == nil, let c = coordinate {
+                    resolvePickedPlaceName(from: c)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("やめる") {
-                        dismiss()
-                    }
+                    Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") {
-                        save()
+                        guard let coordinate else { return }
+                        onSave(
+                            name.trimmingCharacters(in: .whitespacesAndNewlines),
+                            detail.trimmingCharacters(in: .whitespacesAndNewlines),
+                            coordinate
+                        )
+                        dismiss()
                     }
                     .disabled(!canSave)
                 }
             }
+            .confirmationDialog(
+                "この場所を削除しますか？",
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button("削除", role: .destructive) {
+                    onDelete?()
+                    dismiss()
+                }
+                Button("キャンセル", role: .cancel) { }
+            }
         }
     }
 
-    // 保存条件：場所が決まっていて、名前がある
-    private var canSave: Bool {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return coordinate != nil && !trimmed.isEmpty
-    }
-
-    private func save() {
-        guard let coordinate else { return }
-
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let dest = Destination(
-            name: trimmedName,
-            detail: detail,
-            coordinate: coordinate
-        )
-        onSave(dest)
-        dismiss()
+    private func resolvePickedPlaceName(from coordinate: CLLocationCoordinate2D) {
+        let location = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
+        CLGeocoder().reverseGeocodeLocation(location) { placemarks, _ in
+            DispatchQueue.main.async {
+                guard let p = placemarks?.first else { return }
+                let line =
+                    [p.subLocality, p.thoroughfare, p.subThoroughfare]
+                        .compactMap { $0 }
+                        .joined(separator: "")
+                if !line.isEmpty {
+                    pickedPlaceName = line
+                } else if let name = p.name, !name.isEmpty {
+                    pickedPlaceName = name
+                }
+            }
+        }
     }
 }
 
+//
 // MARK: - 地図から行き先を選ぶ（検索＋既存スポット）
+//
 
 private struct MapSearchAnnotation: Identifiable {
     let id = UUID()
     let item: MKMapItem
-
-    var coordinate: CLLocationCoordinate2D {
-        item.placemark.coordinate
-    }
+    let coordinate: CLLocationCoordinate2D
 }
 
 struct MapSearchPickerView: View {
@@ -231,8 +412,7 @@ struct MapSearchPickerView: View {
     @State private var results: [MKMapItem] = []
 
     @State private var selectedItem: MKMapItem? = nil
-    @State private var selectedCoordinate: CLLocationCoordinate2D? = nil  // ★選択中座標
-    @State private var isSearching: Bool = false
+    @State private var selectedCoordinate: CLLocationCoordinate2D? = nil
 
     let onSelect: (MKMapItem) -> Void
 
@@ -242,7 +422,7 @@ struct MapSearchPickerView: View {
 
         let center = initialCoordinate ?? CLLocationCoordinate2D(
             latitude: 35.6812,
-            longitude: 139.7671   // 東京駅あたり
+            longitude: 139.7671
         )
 
         _region = State(initialValue: MKCoordinateRegion(
@@ -262,8 +442,7 @@ struct MapSearchPickerView: View {
                         select(annotation: annotation)
                     } label: {
                         let isSelected = isAnnotationSelected(annotation)
-                        Image(systemName: isSelected ? "mappin.circle.fill"
-                                                     : "mappin.circle")
+                        Image(systemName: isSelected ? "mappin.circle.fill" : "mappin.circle")
                             .font(.system(size: 28))
                             .foregroundColor(isSelected ? .red : Color.yasasumaGreen)
                             .shadow(radius: 3)
@@ -321,16 +500,13 @@ struct MapSearchPickerView: View {
         }
     }
 
-    // ピンとして表示する候補
     private var annotations: [MapSearchAnnotation] {
-        if results.isEmpty, let selectedItem {
-            return [MapSearchAnnotation(item: selectedItem)]
-        } else {
-            return results.map { MapSearchAnnotation(item: $0) }
+        let items: [MKMapItem] = results.isEmpty ? (selectedItem.map { [$0] } ?? []) : results
+        return items.map { item in
+            MapSearchAnnotation(item: item, coordinate: item.yasasumaCoordinate)
         }
     }
 
-    // このアノテーションが選択中かどうか（座標の緯度・経度で判定）
     private func isAnnotationSelected(_ annotation: MapSearchAnnotation) -> Bool {
         guard let selected = selectedCoordinate else { return false }
         return selected.latitude == annotation.coordinate.latitude
@@ -347,7 +523,6 @@ struct MapSearchPickerView: View {
         let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        isSearching = true
         results = []
         selectedItem = nil
         selectedCoordinate = nil
@@ -356,19 +531,30 @@ struct MapSearchPickerView: View {
         request.naturalLanguageQuery = trimmed
         request.region = region
 
-        let search = MKLocalSearch(request: request)
-        search.start { response, error in
+        MKLocalSearch(request: request).start { response, _ in
             DispatchQueue.main.async {
-                isSearching = false
                 if let response = response {
                     results = response.mapItems
                     if let first = response.mapItems.first {
-                        region.center = first.placemark.coordinate
+                        region.center = first.yasasumaCoordinate
                     }
                 } else {
                     results = []
                 }
             }
+        }
+    }
+}
+
+// MARK: - MKMapItem helper（エラー回避版）
+
+private extension MKMapItem {
+    var yasasumaCoordinate: CLLocationCoordinate2D {
+        if #available(iOS 26.0, *) {
+            // ✅ location が non-optional なので ? を使わない（エラー回避）
+            return self.location.coordinate
+        } else {
+            return self.placemark.coordinate
         }
     }
 }
