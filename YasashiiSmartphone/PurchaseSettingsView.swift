@@ -162,7 +162,7 @@ extension PurchaseSettingsView {
         }
 
         private let rows: [Row] = [
-            .init(icon: "calendar", title: "予定", description: "1日に登録できる予定の件数", freeText: "1件まで", proText: "無制限"),
+            .init(icon: "calendar", title: "予定", description: "各日に登録できる予定の件数", freeText: "1件まで", proText: "無制限"),
             .init(icon: "phone",    title: "電話", description: "登録できる「よく電話をかける相手」の件数", freeText: "2件まで", proText: "無制限"),
             .init(icon: "map",      title: "地図", description: "登録できる「よく行く場所」の件数", freeText: "2件まで", proText: "無制限")
         ]
