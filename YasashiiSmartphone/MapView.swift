@@ -4,11 +4,10 @@ import Combine
 import CoreLocation
 
 // MARK: - 行き先データ
-
 struct Destination: Identifiable, Equatable {
     let id = UUID()
-    var name: String           // 表示名（例：病院）
-    var detail: String         // 補足（例：かかりつけの病院）
+    var name: String
+    var detail: String
     var coordinate: CLLocationCoordinate2D
 
     static func == (lhs: Destination, rhs: Destination) -> Bool {
@@ -16,32 +15,23 @@ struct Destination: Identifiable, Equatable {
     }
 }
 
-// サンプル用の行き先リスト
+// ✅ デフォルトは空（設定から追加）
 final class DestinationStore: ObservableObject {
-    @Published var destinations: [Destination] = [
-        Destination(
-            name: "病院",
-            detail: "かかりつけの病院",
-            coordinate: CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671)
-        ),
-        Destination(
-            name: "スーパー",
-            detail: "いつもの買い物",
-            coordinate: CLLocationCoordinate2D(latitude: 35.6895, longitude: 139.6917)
-        ),
-        Destination(
-            name: "駅",
-            detail: "よく使う駅",
-            coordinate: CLLocationCoordinate2D(latitude: 35.7000, longitude: 139.7720)
-        )
-    ]
+    @Published var destinations: [Destination] = []
 }
 
-// MARK: - ① 行き先一覧画面（タブの「道をみる」）
-
+// MARK: - ① 行き先一覧（タブの「地図」）
 struct MapView: View {
     @EnvironmentObject var destinationStore: DestinationStore
     @State private var showCurrentLocationMap = false
+
+    // 空状態に🔒を出すため
+    @AppStorage("yasasumaPasscodeEnabled") private var passcodeEnabled: Bool = false
+    @AppStorage("yasasumaPasscodeValue") private var storedPasscode: String = ""
+
+    private var isSettingsLocked: Bool {
+        passcodeEnabled && storedPasscode.filter { $0.isNumber }.count == 4
+    }
 
     var body: some View {
         ZStack {
@@ -62,9 +52,7 @@ struct MapView: View {
                         .foregroundColor(.secondary)
 
                     if destinationStore.destinations.isEmpty {
-                        Text("行き先がまだ登録されていません。\n設定から追加できます。")
-                            .font(.system(size: 16))
-                            .foregroundColor(.secondary)
+                        MapEmptyStateCard(isLocked: isSettingsLocked)
                             .padding(.top, 8)
                     } else {
                         VStack(spacing: 12) {
@@ -84,7 +72,6 @@ struct MapView: View {
 
                 Spacer()
 
-                // 画面下部固定の「地図をひらく」ボタン（現在地）
                 Button {
                     showCurrentLocationMap = true
                 } label: {
@@ -98,10 +85,7 @@ struct MapView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color.yasasumaGreen)
-                            .shadow(color: .black.opacity(0.3),
-                                    radius: 5,
-                                    x: 0,
-                                    y: 3)
+                            .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 3)
                     )
                     .padding(.horizontal, 32)
                     .padding(.bottom, 32)
@@ -114,8 +98,61 @@ struct MapView: View {
     }
 }
 
-// MARK: - 行き先カード（ボタン風）
+// MARK: - 空状態カード（地図）
+private struct MapEmptyStateCard: View {
+    let isLocked: Bool
 
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.system(size: 22, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Circle().fill(Color.yasasumaGreen))
+
+                Text("行き先がまだありません")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+            }
+
+            Text(isLocked
+                 ? "お子さんが「設定」で登録すると、ここに表示されます。"
+                 : "「設定」で登録すると、ここに表示されます。")
+            .font(.system(size: 15))
+            .foregroundColor(.secondary)
+
+            NavigationLink {
+                SettingsPasscodeGate {
+                    DestinationSettingsView()
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    if isLocked { Image(systemName: "lock.fill") }
+                    Image(systemName: "gearshape.fill")
+                    Text("設定で登録する")
+                }
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(
+                    RoundedRectangle(cornerRadius: 18)
+                        .fill(Color.yasasumaGreen)
+                        .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.white)
+                .shadow(color: .black.opacity(0.08), radius: 3, x: 0, y: 2)
+        )
+    }
+}
+
+// MARK: - 行き先カード
 struct DestinationRow: View {
     let destination: Destination
 
@@ -128,8 +165,7 @@ struct DestinationRow: View {
                 .background(
                     Circle()
                         .fill(Color.yasasumaGreen)
-                        .shadow(color: .black.opacity(0.25),
-                                radius: 4, x: 0, y: 2)
+                        .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
                 )
 
             VStack(alignment: .leading, spacing: 4) {
@@ -153,23 +189,15 @@ struct DestinationRow: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .shadow(color: .white.opacity(0.8),
-                        radius: 3,
-                        x: -2,
-                        y: -2)
-                .shadow(color: .black.opacity(0.2),
-                        radius: 4,
-                        x: 2,
-                        y: 3)
+                .shadow(color: .white.opacity(0.8), radius: 3, x: -2, y: -2)
+                .shadow(color: .black.opacity(0.2), radius: 4, x: 2, y: 3)
         )
     }
 }
 
-// MARK: - 現在地の全画面地図
-
+// MARK: - 現在地マップ
 final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     @Published var lastLocation: CLLocation?
-
     private let manager = CLLocationManager()
 
     override init() {
@@ -180,16 +208,12 @@ final class LocationManager: NSObject, ObservableObject, CLLocationManagerDelega
         manager.startUpdatingLocation()
     }
 
-    func locationManager(_ manager: CLLocationManager,
-                         didUpdateLocations locations: [CLLocation]) {
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        DispatchQueue.main.async {
-            self.lastLocation = location
-        }
+        DispatchQueue.main.async { self.lastLocation = location }
     }
 
-    func locationManager(_ manager: CLLocationManager,
-                         didFailWithError error: Error) {
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("Location error:", error.localizedDescription)
     }
 }
@@ -204,7 +228,7 @@ struct CurrentLocationMapView: View {
 
     @StateObject private var locationManager = LocationManager()
     @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671), // 仮の中心（東京駅）
+        center: CLLocationCoordinate2D(latitude: 35.6812, longitude: 139.7671),
         span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02)
     )
 
@@ -248,25 +272,20 @@ struct CurrentLocationMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("とじる") {
-                        dismiss()
-                    }
+                    Button("とじる") { dismiss() }
                 }
             }
         }
     }
 }
 
-// MARK: - ② 行き先ごとの地図＆ナビ画面
-
+// MARK: - 行き先ごとの地図＆ナビ
 struct DestinationMapView: View {
     let destination: Destination
-
     @Environment(\.openURL) private var openURL
 
     @State private var region: MKCoordinateRegion
 
-    // 一度説明を見たかどうかを保存（アプリ全体で共有）
     @AppStorage("hasSeenMapReturnHint") private var hasSeenMapReturnHint: Bool = false
     @State private var showReturnHint = false
 
@@ -280,17 +299,14 @@ struct DestinationMapView: View {
 
     var body: some View {
         ZStack {
-            Color(.systemGray6)
-                .ignoresSafeArea()
+            Color(.systemGray6).ignoresSafeArea()
 
             VStack(spacing: 16) {
-                // 地図
                 Map(coordinateRegion: $region, annotationItems: [destination]) { dest in
                     MapMarker(coordinate: dest.coordinate, tint: Color.yasasumaGreen)
                 }
                 .cornerRadius(20)
-                .shadow(color: .black.opacity(0.15),
-                        radius: 6, x: 0, y: 3)
+                .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
                 .frame(height: 300)
@@ -315,7 +331,6 @@ struct DestinationMapView: View {
                 Spacer()
 
                 Button {
-                    // 初回だけ戻り方の説明を出す
                     if hasSeenMapReturnHint {
                         openInAppleMaps()
                     } else {
@@ -332,8 +347,7 @@ struct DestinationMapView: View {
                     .background(
                         RoundedRectangle(cornerRadius: 24)
                             .fill(Color.yasasumaGreen)
-                            .shadow(color: .black.opacity(0.3),
-                                    radius: 5, x: 0, y: 3)
+                            .shadow(color: .black.opacity(0.3), radius: 5, x: 0, y: 3)
                     )
                     .padding(.horizontal, 32)
                     .padding(.bottom, 32)
@@ -342,7 +356,6 @@ struct DestinationMapView: View {
         }
         .navigationTitle(destination.name)
         .navigationBarTitleDisplayMode(.inline)
-        // 戻り方の説明アラート
         .alert("Appleマップをひらきます", isPresented: $showReturnHint) {
             Button("やめる", role: .cancel) { }
             Button("ひらく") {
@@ -363,13 +376,13 @@ struct DestinationMapView: View {
         }
     }
 
-    // Appleマップでナビ開始
     private func openInAppleMaps() {
         let lat = destination.coordinate.latitude
         let lon = destination.coordinate.longitude
-        let urlString = "http://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=w" // w = 徒歩
+        let urlString = "http://maps.apple.com/?daddr=\(lat),\(lon)&dirflg=w"
         if let url = URL(string: urlString) {
             openURL(url)
         }
     }
 }
+

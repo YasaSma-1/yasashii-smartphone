@@ -2,11 +2,10 @@ import Foundation
 import SwiftUI
 import Combine
 
-// よくかける相手のモデル
 struct FavoriteContact: Identifiable, Equatable {
     let id: UUID
-    var name: String      // 表示名（例: お母さん）
-    var phone: String     // 電話番号
+    var name: String
+    var phone: String
 
     init(id: UUID = UUID(), name: String, phone: String) {
         self.id = id
@@ -15,18 +14,12 @@ struct FavoriteContact: Identifiable, Equatable {
     }
 }
 
-// アプリ全体で共有する「よくかける相手」のストア
 final class FavoriteContactsStore: ObservableObject {
     @Published var favorites: [FavoriteContact]
 
     init() {
-        // 初期データ（あとで設定画面から編集）
-        self.favorites = [
-            FavoriteContact(name: "自宅",    phone: "0312345678"),
-            FavoriteContact(name: "お母さん", phone: "09011112222"),
-            FavoriteContact(name: "お父さん", phone: "09033334444"),
-            FavoriteContact(name: "病院",    phone: "04855556666")
-        ]
+        // ✅ デフォルトは空（未登録は PhoneView の空状態で伝える）
+        self.favorites = []
     }
 
     func add(name: String, phone: String) {
