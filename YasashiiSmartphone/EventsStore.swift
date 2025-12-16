@@ -1,27 +1,25 @@
-// EventsStore.swift
-
 import Foundation
-import Combine   // ★ これがないと ObservableObject と @Published が使えない
+import Combine
 
-// 予定データ（保存できるように Codable も採用）
+// 予定データ（UserDefaults保存のため Codable）
 struct YasasumaEvent: Identifiable, Codable {
     let id: UUID
     var date: Date
     var title: String
+    var memo: String? = nil   // ✅ メモ
 
-    init(id: UUID = UUID(), date: Date, title: String) {
+    init(id: UUID = UUID(), date: Date, title: String, memo: String? = nil) {
         self.id = id
         self.date = date
         self.title = title
+        self.memo = memo
     }
 }
 
-// 予定リストをアプリ全体で共有＆UserDefaultsに保存
+// 予定リストを共有＆UserDefaultsに保存
 final class EventsStore: ObservableObject {
     @Published var events: [YasasumaEvent] = [] {
-        didSet {
-            saveEvents()
-        }
+        didSet { saveEvents() }
     }
 
     private let storageKey = "yasasuma_events"
