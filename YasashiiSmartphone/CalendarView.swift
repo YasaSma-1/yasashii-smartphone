@@ -16,6 +16,10 @@ struct CalendarView: View {
     @State private var showingCalendarPicker = false
     @State private var showingPaywall = false   // Free で1日1件の上限に達した時に表示
 
+    // ★ 削除機能用
+    @State private var isEditing = false
+    @State private var pendingDeleteEvent: YasasumaEvent? = nil
+
     private let calendar = Calendar.current
 
     var body: some View {
@@ -78,10 +82,43 @@ struct CalendarView: View {
 
                 // ===== この日の予定一覧（メイン） =====
                 VStack(alignment: .leading, spacing: 16) {
-                    Text("この日の予定")
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
 
                     let list = eventsFor(date: selectedDate)
+
+                    HStack(spacing: 12) {
+                        Text("この日の予定")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+
+                        Spacer()
+
+                        // ★ 予定があるときだけ編集ボタンを出す（通常時はUIを増やさない）
+                        if !list.isEmpty {
+                            Button {
+                                isEditing.toggle()
+                            } label: {
+                                Text(isEditing ? "完了" : "編集")
+                                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                                    .foregroundColor(Color.yasasumaGreen)
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .fill(Color.white)
+                                            .shadow(color: .black.opacity(0.10),
+                                                    radius: 2,
+                                                    x: 0,
+                                                    y: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    if isEditing && !list.isEmpty {
+                        Text("消したい予定のゴミ箱を押してください。")
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
+                            .foregroundColor(.secondary)
+                    }
 
                     if list.isEmpty {
                         Text("予定はありません。")
@@ -108,6 +145,8 @@ struct CalendarView: View {
                 // 今日の日付にもどる（左）
                 Button {
                     selectedDate = Date()
+                    // 今日に戻ったら編集モードは解除（事故防止）
+                    isEditing = false
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.uturn.backward.circle")
@@ -148,6 +187,17 @@ struct CalendarView: View {
             PaywallView()
                 .environmentObject(purchaseStore)
         }
+        // ★ 削除確認アラート
+        .alert(item: $pendingDeleteEvent) { event in
+            Alert(
+                title: Text("この予定を削除しますか？"),
+                message: Text("\(timeString(from: event.date))  \(event.title)"),
+                primaryButton: .destructive(Text("削除")) {
+                    deleteEvent(event)
+                },
+                secondaryButton: .cancel(Text("キャンセル"))
+            )
+        }
     }
 
     // MARK: - 予定を追加ボタンタップ時の処理（Free = 1日1件チェック）
@@ -173,7 +223,7 @@ struct CalendarView: View {
         }
     }
 
-    // MARK: - 予定の1行
+    // MARK: - 予定の1行（★編集モード時のみ削除ボタン表示）
 
     private func eventRow(_ event: YasasumaEvent) -> some View {
         HStack(spacing: 16) {
@@ -184,6 +234,23 @@ struct CalendarView: View {
             Text(event.title)
                 .font(.system(size: 22, weight: .regular, design: .rounded))
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isEditing {
+                Button {
+                    pendingDeleteEvent = event
+                } label: {
+                    VStack(spacing: 2) {
+                        Image(systemName: "trash.circle.fill")
+                            .font(.system(size: 30))
+                        Text("削除")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                    }
+                    .foregroundColor(.red)
+                    .frame(width: 62)
+                }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+            }
         }
         .padding(14)
         .background(
@@ -196,11 +263,24 @@ struct CalendarView: View {
         )
     }
 
+    // MARK: - 削除
+
+    private func deleteEvent(_ event: YasasumaEvent) {
+        eventsStore.events.removeAll { $0.id == event.id }
+
+        // その日の予定が空になったら、編集モードも自動解除（事故防止）
+        if eventsFor(date: selectedDate).isEmpty {
+            isEditing = false
+        }
+    }
+
     // MARK: - 日付操作
 
     private func moveDay(by value: Int) {
         if let newDate = calendar.date(byAdding: .day, value: value, to: selectedDate) {
             selectedDate = newDate
+            // 日付移動したら編集モード解除（事故防止）
+            isEditing = false
         }
     }
 
@@ -220,8 +300,8 @@ struct CalendarView: View {
         // ここでは単純に保存のみ行う
         eventsStore.events.append(newEvent)
         if eventsStore.events.count >= 3 {
-                ReviewRequestManager.shared.maybeRequestReview(trigger: .addedEvents)
-            }
+            ReviewRequestManager.shared.maybeRequestReview(trigger: .addedEvents)
+        }
     }
 
     // MARK: - 表示用文字列
@@ -418,54 +498,22 @@ struct CalendarPickerView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("とじる") {
+                    Button("閉じる") {
                         dismiss()
                     }
                 }
             }
         }
-        .environment(\.locale, Locale(identifier: "ja_JP"))
     }
 
-    // 1日のセル
-    private func dayCell(_ date: Date) -> some View {
-        let day = calendar.component(.day, from: date)
-        let isSameMonth = calendar.isDate(date, equalTo: currentMonth, toGranularity: .month)
-        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+    // MARK: - 月移動
 
-        return Button {
-            selectedDate = date
-            dismiss()
-        } label: {
-            Text("\(day)")
-                .font(.system(size: 20))
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(
-                    Group {
-                        if isSelected {
-                            Circle().fill(Color.yasasumaGreen)
-                        } else {
-                            Color.clear
-                        }
-                    }
-                )
-                .foregroundColor(
-                    isSameMonth
-                    ? (isSelected ? Color.white : Color.primary)
-                    : Color.secondary
-                )
-        }
-        .buttonStyle(.plain)
-    }
-
-    // 月移動
     private func moveMonth(by value: Int) {
-        if let newMonth = calendar.date(byAdding: .month, value: value, to: currentMonth) {
-            currentMonth = newMonth
+        if let d = calendar.date(byAdding: .month, value: value, to: currentMonth) {
+            currentMonth = d
         }
     }
 
-    // 月タイトル（日本語）
     private func monthTitle(for date: Date) -> String {
         let f = DateFormatter()
         f.locale = Locale(identifier: "ja_JP")
@@ -473,35 +521,50 @@ struct CalendarPickerView: View {
         return f.string(from: date)
     }
 
-    // 月の日付配列（カレンダー用）
-    private func makeDaysInMonth(for baseDate: Date) -> [Date?] {
-        var result: [Date?] = []
+    // MARK: - 日付配列（週×7）
 
-        guard let monthStart = calendar.date(
-            from: calendar.dateComponents([.year, .month], from: baseDate)
-        ),
-        let range = calendar.range(of: .day, in: .month, for: baseDate) else {
-            return result
-        }
+    private func makeDaysInMonth(for month: Date) -> [Date?] {
+        guard let range = calendar.range(of: .day, in: .month, for: month),
+              let first = calendar.date(from: calendar.dateComponents([.year, .month], from: month))
+        else { return [] }
 
-        let weekday = calendar.component(.weekday, from: monthStart) // 1 = 日曜
-        let leadingEmpty = weekday - 1
+        let firstWeekday = calendar.component(.weekday, from: first) // 1=日
+        let leadingBlank = (firstWeekday - 1 + 7) % 7
 
-        if leadingEmpty > 0 {
-            result.append(contentsOf: Array(repeating: nil, count: leadingEmpty))
-        }
+        var days: [Date?] = Array(repeating: nil, count: leadingBlank)
 
         for day in range {
-            if let date = calendar.date(byAdding: .day, value: day - 1, to: monthStart) {
-                result.append(date)
+            if let d = calendar.date(byAdding: .day, value: day - 1, to: first) {
+                days.append(d)
             }
         }
 
-        while result.count % 7 != 0 {
-            result.append(nil)
+        while days.count % 7 != 0 {
+            days.append(nil)
         }
 
-        return result
+        return days
+    }
+
+    // MARK: - 日セル
+
+    private func dayCell(_ date: Date) -> some View {
+        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let day = calendar.component(.day, from: date)
+
+        return Button {
+            selectedDate = date
+            dismiss()
+        } label: {
+            Text("\(day)")
+                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(isSelected ? Color.yasasumaGreen.opacity(0.22) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
