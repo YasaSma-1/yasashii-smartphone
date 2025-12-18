@@ -7,6 +7,10 @@ struct PurchaseSettingsView: View {
     @State private var isPurchasing = false
     @State private var purchaseErrorMessage: String?
 
+    // ✅ Review用：機能するリンク（バイナリ内）
+    private let privacyPolicyURL = URL(string: "https://docs.google.com/document/d/1-vFWUYwsOLUemHcwBM9GqYjAmHi8x8w-TbAUmj8aUmg/edit?usp=sharing")
+    private let eulaURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+
     var body: some View {
         ZStack {
             Color(.systemGray6).ignoresSafeArea()
@@ -14,7 +18,6 @@ struct PurchaseSettingsView: View {
             ScrollView {
                 VStack(spacing: 18) {
 
-                    // ✅ タイトル：24px / ナビとの余白を詰める
                     Text("やさスマプレミアムでできること")
                         .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(.primary)
@@ -82,6 +85,26 @@ struct PurchaseSettingsView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity, alignment: .leading)
+
+                        // ✅ ここだけ：リンク（中央揃え）＋注意文は削除
+                        HStack(spacing: 12) {
+                            if let url = privacyPolicyURL {
+                                Link("プライバシーポリシー", destination: url)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color.yasasumaGreen)
+                            }
+
+                            Text("・")
+                                .font(.system(size: 12))
+                                .foregroundColor(.secondary)
+
+                            if let url = eulaURL {
+                                Link("利用規約（EULA）", destination: url)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(Color.yasasumaGreen)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
                     }
 
                     Spacer(minLength: 8)
@@ -213,7 +236,6 @@ extension PurchaseSettingsView {
                     Image(systemName: "crown.fill")
                         .font(.system(size: 14, weight: .bold))
                         .foregroundColor(.orange)
-
                     Text("プレミアム")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.primary)

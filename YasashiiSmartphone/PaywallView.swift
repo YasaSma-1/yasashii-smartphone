@@ -8,6 +8,10 @@ struct PaywallView: View {
     @State private var isPurchasing = false
     @State private var purchaseErrorMessage: String?
 
+    // ✅ Review用：機能するリンク（バイナリ内）
+    private let privacyPolicyURL = URL(string: "https://docs.google.com/document/d/1-vFWUYwsOLUemHcwBM9GqYjAmHi8x8w-TbAUmj8aUmg/edit?usp=sharing")
+    private let eulaURL = URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -16,7 +20,6 @@ struct PaywallView: View {
                 ScrollView {
                     VStack(spacing: 18) {
 
-                        // ✅ タイトル：24px / ナビとの余白を詰める
                         Text("やさスマプレミアムでできること")
                             .font(.system(size: 24, weight: .bold, design: .rounded))
                             .foregroundColor(.primary)
@@ -84,6 +87,26 @@ struct PaywallView: View {
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                            // ✅ ここだけ：リンク（中央揃え）＋注意文は削除
+                            HStack(spacing: 12) {
+                                if let url = privacyPolicyURL {
+                                    Link("プライバシーポリシー", destination: url)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(Color.yasasumaGreen)
+                                }
+
+                                Text("・")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.secondary)
+
+                                if let url = eulaURL {
+                                    Link("利用規約（EULA）", destination: url)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundColor(Color.yasasumaGreen)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .center)
                         }
 
                         Spacer(minLength: 8)
@@ -92,7 +115,7 @@ struct PaywallView: View {
                     .padding(.bottom, 32)
                 }
             }
-            
+
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -175,12 +198,11 @@ extension PaywallView {
             .init(icon: "map",      title: "地図", description: "登録できる「よく行く場所」の件数", freeText: "2件まで", proText: "無制限")
         ]
 
-        // 列幅（プレミアムが改行されないように少し広め）
         private let freeWidth: CGFloat = 86
         private let proWidth: CGFloat = 124
 
         private let lineColor = Color(.systemGray4)
-        private let freeValueBG = Color(.systemGray6)   // ✅ 無料の“値セル”だけグレー
+        private let freeValueBG = Color(.systemGray6)
 
         var body: some View {
             VStack(spacing: 0) {
@@ -216,7 +238,6 @@ extension PaywallView {
                     .foregroundColor(.primary)
                     .frame(width: freeWidth)
                     .padding(.vertical, 12)
-                    .background(Color.clear) // ✅ ヘッダーは白
 
                 verticalDivider
 
@@ -228,7 +249,7 @@ extension PaywallView {
                     Text("プレミアム")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.primary)
-                        .lineLimit(1)            // ✅ 改行させない
+                        .lineLimit(1)
                         .minimumScaleFactor(0.9)
                 }
                 .frame(width: proWidth)
@@ -240,7 +261,6 @@ extension PaywallView {
         private func tableRow(_ row: Row) -> some View {
             HStack(spacing: 0) {
 
-                // 左：機能
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 8) {
                         Image(systemName: row.icon)
@@ -253,7 +273,6 @@ extension PaywallView {
                             .foregroundColor(Color.yasasumaGreen)
                     }
 
-                    // ✅ description を少し大きく
                     Text(row.description)
                         .font(.system(size: 15))
                         .foregroundColor(.secondary)
@@ -265,7 +284,6 @@ extension PaywallView {
 
                 verticalDivider
 
-                // ✅ 無料セル：行の高さ100%ぶん、縦仕切り線まで“マス全面”グレー
                 ZStack {
                     Rectangle().fill(freeValueBG)
                     Text(row.freeText)
@@ -273,11 +291,10 @@ extension PaywallView {
                         .foregroundColor(.secondary)
                 }
                 .frame(width: freeWidth)
-                .frame(maxHeight: .infinity) // ★これが効く（左が2行でも高さ追従）
+                .frame(maxHeight: .infinity)
 
                 verticalDivider
 
-                // 右：プレミアム
                 ZStack {
                     Color.clear
                     HStack(spacing: 6) {
