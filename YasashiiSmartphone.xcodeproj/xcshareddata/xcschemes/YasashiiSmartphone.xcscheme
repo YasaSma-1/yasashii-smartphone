@@ -50,9 +50,6 @@
             ReferencedContainer = "container:YasashiiSmartphone.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <StoreKitConfigurationFileReference
-         identifier = "../../YasashiiSmartphone/yasasuma_premium_monthly.storekit">
-      </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
