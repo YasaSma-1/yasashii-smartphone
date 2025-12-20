@@ -19,7 +19,39 @@ final class CameraViewModel: NSObject, ObservableObject, AVCapturePhotoCaptureDe
     override init() {
         super.init()
         configureSession()
+        // ※ここでは権限ダイアログを出さず、CameraView.onAppear で出す（意図通り「開いた時に出る」）
         loadLatestPhotoThumbnail()
+    }
+
+    // MARK: - Photo Library Permission（readWrite で要求）
+
+    /// CameraView を開いた時に「フルアクセス」ダイアログを出したい用途
+    func requestPhotoLibraryReadWriteAccessIfNeeded() {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+
+        switch status {
+        case .authorized, .limited:
+            // 既にOKなら最新サムネ更新
+            loadLatestPhotoThumbnail()
+
+        case .notDetermined:
+            // ここで「アクセスを制限 / フルアクセスを許可」が出る
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { [weak self] newStatus in
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    if newStatus == .authorized || newStatus == .limited {
+                        self.loadLatestPhotoThumbnail()
+                    }
+                }
+            }
+
+        case .denied, .restricted:
+            // ここでは何もしない（必要なら別途、許可誘導UIを出す）
+            break
+
+        @unknown default:
+            break
+        }
     }
 
     // 権限チェック + セッション構成
@@ -125,14 +157,31 @@ final class CameraViewModel: NSObject, ObservableObject, AVCapturePhotoCaptureDe
         saveToLibrary(image: image)
     }
 
-    // 写真アプリに保存
+    // 写真アプリに保存（readWrite 権限に統一）
     private func saveToLibrary(image: UIImage) {
-        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
-            guard status == .authorized || status == .limited else { return }
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
 
+        let performSave: () -> Void = {
             PHPhotoLibrary.shared().performChanges({
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
-            }, completionHandler: nil)
+            }, completionHandler: { [weak self] _, _ in
+                // 保存後サムネ更新
+                DispatchQueue.main.async {
+                    self?.loadLatestPhotoThumbnail()
+                }
+            })
+        }
+
+        if status == .authorized || status == .limited {
+            performSave()
+            return
+        }
+
+        if status == .notDetermined {
+            PHPhotoLibrary.requestAuthorization(for: .readWrite) { newStatus in
+                guard newStatus == .authorized || newStatus == .limited else { return }
+                performSave()
+            }
         }
     }
 
@@ -358,7 +407,11 @@ struct CameraView: View {
             }
         }
         .toolbar(.hidden, for: .navigationBar)
-        .onAppear { viewModel.startSessionIfNeeded() }
+        .onAppear {
+            // ✅ ここで「写真ライブラリのフルアクセス」ダイアログを出す
+            viewModel.requestPhotoLibraryReadWriteAccessIfNeeded()
+            viewModel.startSessionIfNeeded()
+        }
         .onDisappear { viewModel.stopSessionIfNeeded() }
         .fullScreenCover(isPresented: $showingLastPhoto) {
             if let image = viewModel.lastPhoto {
