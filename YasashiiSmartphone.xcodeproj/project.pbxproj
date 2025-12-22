@@ -150,10 +150,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YasashiiSmartphone/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "カメラで写真を撮影して、やさスマの中で表示するために使います。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "やさスマの「カメラ」で写真を撮影し、iPhoneの「写真」に保存して、アプリ内で見返すために使用します（例：メモや書類を撮って確認します）。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の地図を表示するために位置情報を利用します。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "撮影した写真をフォトライブラリに保存するために使います。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "写真一覧を表示するためにフォトライブラリへアクセスします。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさスマの「カメラ」で撮った写真を、iPhoneの「写真」に保存するために使用します（例：撮影した写真をアルバムに残します）。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさスマの「写真」で、iPhone内の写真を一覧表示し、タップして拡大して見返すために使用します（例：撮影した写真を確認します）。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -189,10 +189,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YasashiiSmartphone/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "カメラで写真を撮影して、やさスマの中で表示するために使います。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "やさスマの「カメラ」で写真を撮影し、iPhoneの「写真」に保存して、アプリ内で見返すために使用します（例：メモや書類を撮って確認します）。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の地図を表示するために位置情報を利用します。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "撮影した写真をフォトライブラリに保存するために使います。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "写真一覧を表示するためにフォトライブラリへアクセスします。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさスマの「カメラ」で撮った写真を、iPhoneの「写真」に保存するために使用します（例：撮影した写真をアルバムに残します）。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさスマの「写真」で、iPhone内の写真を一覧表示し、タップして拡大して見返すために使用します（例：撮影した写真を確認します）。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
