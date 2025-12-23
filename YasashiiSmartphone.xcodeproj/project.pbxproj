@@ -150,10 +150,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YasashiiSmartphone/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "やさスマの「カメラ」で写真を撮影し、iPhoneの「写真」に保存して、アプリ内で見返すために使用します（例：メモや書類を撮って確認します）。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "やさしいスマホで写真を撮影するためにカメラを使用します。撮影画面を表示し、シャッターボタンで写真を撮影します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の地図を表示するために位置情報を利用します。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさスマの「カメラ」で撮った写真を、iPhoneの「写真」に保存するために使用します（例：撮影した写真をアルバムに残します）。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさスマの「写真」で、iPhone内の写真を一覧表示し、タップして拡大して見返すために使用します（例：撮影した写真を確認します）。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさしいスマホで撮影した写真をiPhoneの「写真」に保存するために写真ライブラリを使用します。撮影した写真をアルバムに保存できます。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさしいスマホでiPhone内の写真を表示・選択するために写真ライブラリを使用します。写真一覧から選んだ写真をアプリ内で表示し、拡大して確認できます。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -189,10 +189,10 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = YasashiiSmartphone/Info.plist;
-				INFOPLIST_KEY_NSCameraUsageDescription = "やさスマの「カメラ」で写真を撮影し、iPhoneの「写真」に保存して、アプリ内で見返すために使用します（例：メモや書類を撮って確認します）。";
+				INFOPLIST_KEY_NSCameraUsageDescription = "やさしいスマホで写真を撮影するためにカメラを使用します。撮影画面を表示し、シャッターボタンで写真を撮影します。";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の地図を表示するために位置情報を利用します。";
-				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさスマの「カメラ」で撮った写真を、iPhoneの「写真」に保存するために使用します（例：撮影した写真をアルバムに残します）。";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさスマの「写真」で、iPhone内の写真を一覧表示し、タップして拡大して見返すために使用します（例：撮影した写真を確認します）。";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "やさしいスマホで撮影した写真をiPhoneの「写真」に保存するために写真ライブラリを使用します。撮影した写真をアルバムに保存できます。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "やさしいスマホでiPhone内の写真を表示・選択するために写真ライブラリを使用します。写真一覧から選んだ写真をアプリ内で表示し、拡大して確認できます。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
